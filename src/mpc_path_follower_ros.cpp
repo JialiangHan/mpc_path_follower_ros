@@ -13,16 +13,17 @@
 PLUGINLIB_EXPORT_CLASS(mpc_path_follower::MpcPathFollowerRos, nav_core::BaseLocalPlanner)
 
 namespace mpc_path_follower {
-    MpcPathFollowerRos::MpcPathFollowerRos():initialized_(false),
-        odom_helper_("odom"), setup_(false), debug_(true), _is_close_enough(false){
-
+    MpcPathFollowerRos::MpcPathFollowerRos() : initialized_(false),
+                                               odom_helper_("odom"), debug_(true), _is_close_enough(false)
+    {
     }
 
     void MpcPathFollowerRos::initialize(std::string name,
                                            tf::TransformListener *tf,
                                            costmap_2d::Costmap2DROS *costmap_ros)
     {
-        if (!isInitialized()) {
+        if (!isInitialized())
+        {
 
             ros::NodeHandle private_nh("~/" + name);
             ros::NodeHandle nh;
@@ -31,14 +32,42 @@ namespace mpc_path_follower {
             _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
             _pub_mpc_traj   = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1);// MPC trajectory output
 
-            tf_ = tf;
             costmap_ros_ = costmap_ros;
             costmap_ros_->getRobotPose(current_pose_);
             DT = 0.2;
             // make sure to update the costmap we'll use for this cycle
             costmap_2d::Costmap2D* costmap = costmap_ros_->getCostmap();
 
-            planner_util_.initialize(tf, costmap, costmap_ros_->getGlobalFrameID());
+            if (private_nh.getParam("odom_topic", odom_topic_))
+            {
+                odom_helper_.setOdomTopic(odom_topic_);
+            }
+
+            initialized_ = true;
+        }
+        else
+        {
+            ROS_WARN("This planner has already been initialized, doing nothing.");
+        }
+    }
+
+    void MpcPathFollowerRos::initialize(std::string name, tf2_ros::Buffer *tf, costmap_2d::Costmap2DROS *costmap_ros)
+    {
+        if (!isInitialized())
+        {
+
+            ros::NodeHandle private_nh("~/" + name);
+            ros::NodeHandle nh;
+            nh.param<bool>("debug", debug_, false);
+            _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
+            _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
+            _pub_mpc_traj = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1); // MPC trajectory output
+
+            costmap_ros_ = costmap_ros;
+            costmap_ros_->getRobotPose(current_pose_);
+            DT = 0.2;
+            // make sure to update the costmap we'll use for this cycle
+            costmap_2d::Costmap2D *costmap = costmap_ros_->getCostmap();
 
             if( private_nh.getParam( "odom_topic", odom_topic_ ))
             {
@@ -52,42 +81,41 @@ namespace mpc_path_follower {
         }
     }
 
-    bool MpcPathFollowerRos::computeVelocityCommands(geometry_msgs::Twist &cmd_vel){
-
-        if ( ! costmap_ros_->getRobotPose(current_pose_)) {
+    bool MpcPathFollowerRos::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
+    {
+        if (!costmap_ros_->getRobotPose(current_pose_))
+        {
             ROS_ERROR("Could not get robot pose");
             return false;
         }
         std::vector<geometry_msgs::PoseStamped> transformed_plan;
-        if ( ! planner_util_.getLocalPlan(current_pose_, transformed_plan)) {
-            ROS_ERROR("MPC Could not get local plan");
-            return false;
-        }
 
-        //if the global plan passed in is empty... we won't do anything
-        if(transformed_plan.empty()) {
+        // if the global plan passed in is empty... we won't do anything
+        if (transformed_plan.empty())
+        {
             ROS_WARN_NAMED("mpc_local_planner", "Received an empty transformed plan.");
             return false;
         }
-        ROS_FATAL_NAMED("mpc_local_planner", "Received a transformed plan with %zu points.", transformed_plan.size()) ;
+        ROS_FATAL_NAMED("mpc_local_planner", "Received a transformed plan with %zu points.", transformed_plan.size());
 
         if (isGoalReached())
         {
-            //publish an empty plan because we've reached our goal position
+            // publish an empty plan because we've reached our goal position
             publishZeroVelocity();
+            return true;
         }
         else
         {
             bool isOk = mpcComputeVelocityCommands(transformed_plan, cmd_vel);
             if (isOk)
             {
-                //publishGlobalPlan(transformed_plan);
+                // publishGlobalPlan(transformed_plan);
             }
             else
             {
                 ROS_WARN_NAMED("mpc_local_planner", "mpc planner failed to produce path.");
                 std::vector<geometry_msgs::PoseStamped> empty_plan;
-                //publishGlobalPlan(empty_plan);
+                // publishGlobalPlan(empty_plan);
             }
             return isOk;
         }
@@ -95,10 +123,10 @@ namespace mpc_path_follower {
 
     bool MpcPathFollowerRos::mpcComputeVelocityCommands(std::vector<geometry_msgs::PoseStamped> &path, geometry_msgs::Twist &cmd_vel){
 
-        tf::Stamped<tf::Pose> robot_vel;
+        geometry_msgs::PoseStamped robot_vel;
         odom_helper_.getRobotVel(robot_vel);
-        Eigen::Vector3f vel(robot_vel.getOrigin().getX(),
-                            robot_vel.getOrigin().getY(), tf::getYaw(robot_vel.getRotation()));
+        Eigen::Vector3f vel(robot_vel.pose.position.x,
+                            robot_vel.pose.position.y, 0);
 
         // Display the MPC reference trajectory in odom coordinate
         nav_msgs::Path _mpc_ref_traj;
@@ -229,8 +257,16 @@ namespace mpc_path_follower {
             ROS_ERROR("Planner utils have not been initialized, please call initialize() first");
             return false;
         }
+        // store the global plan
+        global_plan_.clear();
+
+        global_plan_ = orig_global_plan;
+
+        // we do not clear the local planner here, since setPlan is called frequently whenever the global planner updates the plan.
+        // the local planner checks whether it is required to reinitialize the trajectory or not within each velocity computation step.
+
         _is_close_enough = false;
-        return planner_util_.setPlan(orig_global_plan);
+        return true;
     }
 
     bool MpcPathFollowerRos::isGoalReached(){
@@ -279,16 +315,7 @@ namespace mpc_path_follower {
         return result;
     }
 
-    void MpcPathFollowerRos::publishLocalPlan(std::vector<geometry_msgs::PoseStamped>& path) {
-        base_local_planner::publishPlan(path, l_plan_pub_);
-    }
-
     void MpcPathFollowerRos::publishGlobalPlan(std::vector<geometry_msgs::PoseStamped>& path) {
         base_local_planner::publishPlan(path, g_plan_pub_);
     }
 };
-
-//int main(int argc, char** argv)
-//{
-//  ros::init(argc, argv, "mpc_path_follower_node");
-//}

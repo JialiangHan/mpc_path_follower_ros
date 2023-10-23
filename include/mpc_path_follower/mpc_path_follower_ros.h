@@ -19,6 +19,8 @@
 #include <base_local_planner/odometry_helper_ros.h>
 #include <base_local_planner/goal_functions.h>
 #include <base_local_planner/latched_stop_rotate_controller.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
 namespace mpc_path_follower {
     class MpcPathFollowerRos : public nav_core::BaseLocalPlanner{
     public:
@@ -29,7 +31,7 @@ namespace mpc_path_follower {
         /**
          * @brief  Destructor for the wrapper
          */
-        ~MpcPathFollowerRos()= default;
+        ~MpcPathFollowerRos(){};
         /**
          * @brief  Constructs the ros wrapper
          * @param name The name to give this instance of the trajectory planner
@@ -38,6 +40,8 @@ namespace mpc_path_follower {
          */
         void initialize(std::string name, tf::TransformListener* tf,
                         costmap_2d::Costmap2DROS* costmap_ros);
+
+        void initialize(std::string name, tf2_ros::Buffer *tf, costmap_2d::Costmap2DROS *costmap_ros);
         /**
          * @brief  Given the current position, orientation, and velocity of the robot,
          * compute velocity commands to send to the base
@@ -72,13 +76,7 @@ namespace mpc_path_follower {
           cmd_vel.angular.z = 0.0;
           vel_pub_.publish(cmd_vel);
         }
-        /**
-         * @brief evaluate a polynominal
-         * @param coefficients and input
-         * @return output of the polynominal
-         */
-        int ClosestWaypoint(double x, double y, nav_msgs::Path global_path)
-        {}
+
         /**
          * @brief evaluate a polynominal
          * @param coefficients and input
@@ -96,46 +94,30 @@ namespace mpc_path_follower {
 
         bool mpcComputeVelocityCommands(std::vector<geometry_msgs::PoseStamped>& path, geometry_msgs::Twist& cmd_vel );
 
-        void publishLocalPlan(std::vector<geometry_msgs::PoseStamped>& path);
-
         void publishGlobalPlan(std::vector<geometry_msgs::PoseStamped>& path);
 
-        tf::TransformListener* tf_; ///< @brief Used for transforming point clouds
-        tf::TransformListener _tf_listener;
-
-        // for visualisation, publishers of global and local plan
+        // for visualization, publishers of global and local plan
         ros::Publisher g_plan_pub_, l_plan_pub_, vel_pub_;
-        ros::Subscriber odom_sub;
 
         ros::Publisher _pub_ref_path_odom, _pub_mpc_traj, _pub_ref_path_baselink;
 
         costmap_2d::Costmap2DROS* costmap_ros_;
 
-        bool setup_;
-
-        tf::Stamped<tf::Pose> current_pose_;
+        geometry_msgs::PoseStamped current_pose_;
 
         bool initialized_;
         bool debug_;
 
         base_local_planner::OdometryHelperRos odom_helper_;
 
-        base_local_planner::LatchedStopRotateController latchedStopRotateController_;
-
         std::string odom_topic_;
 
         std::vector<geometry_msgs::PoseStamped> global_plan_;
 
-        base_local_planner::LocalPlannerUtil planner_util_;
-
         Eigen::Vector3f vel;
-        float  DT;
-        float pathLength_;
+        float DT;
         MPC_Path_Follower mpc_solver;
         bool _is_close_enough;
-
-        std::vector<geometry_msgs::PoseStamped> temp_original_plan, temp_transformed_plan, final_transfromed_plan;
-
     };
 };
 #endif
