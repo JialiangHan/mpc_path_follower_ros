@@ -22,7 +22,7 @@ namespace mpc_path_follower {
                                            tf::TransformListener *tf,
                                            costmap_2d::Costmap2DROS *costmap_ros)
     {
-        if (!isInitialized())
+        if (!initialized_)
         {
 
             ros::NodeHandle private_nh("~/" + name);
@@ -53,7 +53,7 @@ namespace mpc_path_follower {
 
     void MpcPathFollowerRos::initialize(std::string name, tf2_ros::Buffer *tf, costmap_2d::Costmap2DROS *costmap_ros)
     {
-        if (!isInitialized())
+        if (!initialized_)
         {
 
             ros::NodeHandle private_nh("~/" + name);
@@ -270,7 +270,8 @@ namespace mpc_path_follower {
     }
 
     bool MpcPathFollowerRos::isGoalReached(){
-        if (! isInitialized()) {
+        if (!initialized_)
+        {
             ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
             return false;
         }

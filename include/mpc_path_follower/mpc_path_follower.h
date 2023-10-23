@@ -16,6 +16,8 @@
 #include <vector>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
+#include "glog/logging.h"
+#include "gflags/gflags.h"
 
 using CppAD::AD;
 size_t N = 20; //timesteps

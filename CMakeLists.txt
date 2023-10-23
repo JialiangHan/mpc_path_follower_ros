@@ -13,7 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf
 )
-
+FIND_PACKAGE(Glog REQUIRED)
+FIND_PACKAGE(Gflags)
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
@@ -38,7 +39,7 @@ add_library(mpc_path_follower
 target_link_libraries(${PROJECT_NAME}
     ${catkin_LIBRARIES}
   )
-target_link_libraries(${PROJECT_NAME} ipopt)
+target_link_libraries(${PROJECT_NAME} ipopt  glog::glog )
 
 #add_dependencies(mpc_path_follower ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

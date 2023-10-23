@@ -63,10 +63,6 @@ namespace mpc_path_follower {
          */
         bool isGoalReached();
 
-        bool isInitialized() {
-            return initialized_;
-        }
-
     private:
 
         inline void publishZeroVelocity(){
