@@ -112,7 +112,8 @@ std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::Vecto
     ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
 
     auto cost = solution.obj_value;
-    std::cout << "Cost " << cost << std::endl;
+    DLOG(INFO) << "Cost is " << cost;
+    // std::cout << "Cost " << cost << std::endl;
 
     result.push_back(solution.x[delta_start]);
     result.push_back(solution.x[a_start]);

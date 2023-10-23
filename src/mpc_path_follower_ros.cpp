@@ -14,8 +14,21 @@ PLUGINLIB_EXPORT_CLASS(mpc_path_follower::MpcPathFollowerRos, nav_core::BaseLoca
 
 namespace mpc_path_follower {
     MpcPathFollowerRos::MpcPathFollowerRos() : initialized_(false),
-                                               odom_helper_("odom"), debug_(true), _is_close_enough(false)
+                                               odom_helper_("odom"), _is_close_enough(false)
     {
+        std::string log_dir = "/home/jialiang/Code/thesis_ws/src/mpc_path_follower_ros/log/mpc_local_planner_";
+        for (int severity = 0; severity < google::NUM_SEVERITIES; ++severity)
+        {
+            google::SetLogDestination(severity, log_dir.c_str());
+            google::SetLogSymlink(severity, log_dir.c_str());
+        }
+        google::InitGoogleLogging("mpc_local_planner");
+
+        google::InstallFailureSignalHandler();
+
+        google::EnableLogCleaner(5);
+        FLAGS_alsologtostderr = 1;
+        DLOG(INFO) << "creating mpc_local_planner planner";
     }
 
     void MpcPathFollowerRos::initialize(std::string name,
@@ -27,7 +40,6 @@ namespace mpc_path_follower {
 
             ros::NodeHandle private_nh("~/" + name);
             ros::NodeHandle nh;
-            nh.param<bool>("debug", debug_, false);
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
             _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
             _pub_mpc_traj   = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1);// MPC trajectory output
@@ -47,7 +59,8 @@ namespace mpc_path_follower {
         }
         else
         {
-            ROS_WARN("This planner has already been initialized, doing nothing.");
+            DLOG(INFO) << "This planner has already been initialized, doing nothing.";
+            // ROS_WARN("This planner has already been initialized, doing nothing.");
         }
     }
 
@@ -58,7 +71,7 @@ namespace mpc_path_follower {
 
             ros::NodeHandle private_nh("~/" + name);
             ros::NodeHandle nh;
-            nh.param<bool>("debug", debug_, false);
+
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
             _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
             _pub_mpc_traj = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1); // MPC trajectory output
@@ -76,8 +89,10 @@ namespace mpc_path_follower {
 
             initialized_ = true;
         }
-        else{
-            ROS_WARN("This planner has already been initialized, doing nothing.");
+        else
+        {
+            DLOG(INFO) << "This planner has already been initialized, doing nothing.";
+            // ROS_WARN("This planner has already been initialized, doing nothing.");
         }
     }
 
@@ -85,7 +100,8 @@ namespace mpc_path_follower {
     {
         if (!costmap_ros_->getRobotPose(current_pose_))
         {
-            ROS_ERROR("Could not get robot pose");
+            DLOG(ERROR) << "Could not get robot pose";
+            // ROS_ERROR("Could not get robot pose");
             return false;
         }
         std::vector<geometry_msgs::PoseStamped> transformed_plan;
@@ -93,10 +109,12 @@ namespace mpc_path_follower {
         // if the global plan passed in is empty... we won't do anything
         if (transformed_plan.empty())
         {
-            ROS_WARN_NAMED("mpc_local_planner", "Received an empty transformed plan.");
+            DLOG(WARNING) << "mpc_local_planner: Received an empty transformed plan.";
+            // ROS_WARN_NAMED("mpc_local_planner", "Received an empty transformed plan.");
             return false;
         }
-        ROS_FATAL_NAMED("mpc_local_planner", "Received a transformed plan with %zu points.", transformed_plan.size());
+        DLOG(INFO) << "mpc_local_planner: Received a transformed plan with " << transformed_plan.size() << " points.";
+        // ROS_FATAL_NAMED("mpc_local_planner", "Received a transformed plan with %zu points.", transformed_plan.size());
 
         if (isGoalReached())
         {
@@ -113,8 +131,9 @@ namespace mpc_path_follower {
             }
             else
             {
-                ROS_WARN_NAMED("mpc_local_planner", "mpc planner failed to produce path.");
-                std::vector<geometry_msgs::PoseStamped> empty_plan;
+                DLOG(INFO) << "mpc_local_planner: mpc planner failed to produce path.";
+                // ROS_WARN_NAMED("mpc_local_planner", "mpc planner failed to produce path.");
+                // std::vector<geometry_msgs::PoseStamped> empty_plan;
                 // publishGlobalPlan(empty_plan);
             }
             return isOk;
@@ -193,20 +212,22 @@ namespace mpc_path_follower {
         double epsi = psi - atan(coeffs[1]);*/
         double cte = polyeval(coeffs, 0);
         double epsi = atan(coeffs[1]);
-        if (debug_){
-            std::cout<<"psi is"<<std::endl;
-            std::cout<<"path size is"<<path.size()<<std::endl;
-            std::cout<<"waypoints x size is"<<waypoints_x.size()<<std::endl;
-            std::cout<<"coeffs is "<<coeffs<<std::endl;
-            std::cout<<"cte is"<<cte<<std::endl;
-            std::cout<<"epsi is"<<epsi<<std::endl;
-        }
+        DLOG(INFO) << "psi is " << psi << " path size is" << path.size() << " waypoints x size is" << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is" << epsi;
+        // if (debug_){
+        // std::cout<<"psi is"<<std::endl;
+        // std::cout<<"path size is"<<path.size()<<std::endl;
+        // std::cout<<"waypoints x size is"<<waypoints_x.size()<<std::endl;
+        // std::cout<<"coeffs is "<<coeffs<<std::endl;
+        // std::cout<<"cte is"<<cte<<std::endl;
+        // std::cout<<"epsi is"<<epsi<<std::endl;
+        // }
         Eigen::VectorXd state(6);
         state << 0, 0, 0, vel[0], cte, epsi;
         std::vector<double> vars;
         vars.clear();
         vars = mpc_solver.solve(state, coeffs);
-        if (vars.size() < 2){
+        if (vars.size() < 2)
+        {
             return false;
         }
         std::vector<double> mpc_x_vals;
@@ -239,7 +260,8 @@ namespace mpc_path_follower {
         double steer_value = 0.0, throttle_value = 0.0;
         steer_value = vars[0];
         throttle_value = vars[1];
-        ROS_INFO("Steer value and throttle value is, %lf , %lf", steer_value, throttle_value);
+        DLOG(INFO) << "Steer value is " << steer_value << " and throttle value is " << throttle_value;
+        // ROS_INFO("Steer value and throttle value is, %lf , %lf", steer_value, throttle_value);
         cmd_vel.linear.x = vel[0] + vars[1] * DT;
         double radius = 0.0;
         if (fabs(tan(steer_value)) <= 1e-2){
@@ -248,13 +270,15 @@ namespace mpc_path_follower {
             radius = 0.5 / tan(steer_value);}
         cmd_vel.angular.z = std::max(-1.0, std::min(1.0, (cmd_vel.linear.x / radius)));
         cmd_vel.linear.x = std::min(0.2, cmd_vel.linear.x);
-        ROS_INFO("v value and z value is, %lf , %lf", cmd_vel.linear.x, cmd_vel.angular.z);
+        DLOG(INFO) << "v value is " << cmd_vel.linear.x << " and z value is " << cmd_vel.angular.z;
+        // ROS_INFO("v value and z value is, %lf , %lf", cmd_vel.linear.x, cmd_vel.angular.z);
         return true;
     }
 
     bool MpcPathFollowerRos::setPlan(const std::vector<geometry_msgs::PoseStamped>& orig_global_plan){
         if(!initialized_){
-            ROS_ERROR("Planner utils have not been initialized, please call initialize() first");
+            DLOG(INFO) << "Planner have not been initialized, please call initialize() first";
+            // ROS_ERROR("Planner utils have not been initialized, please call initialize() first");
             return false;
         }
         // store the global plan
@@ -272,18 +296,25 @@ namespace mpc_path_follower {
     bool MpcPathFollowerRos::isGoalReached(){
         if (!initialized_)
         {
-            ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
+            DLOG(INFO) << "Planner have not been initialized, please call initialize() first";
+            // ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
             return false;
         }
-        if ( ! costmap_ros_->getRobotPose(current_pose_)) {
-            ROS_ERROR("Could not get robot pose");
+        if (!costmap_ros_->getRobotPose(current_pose_))
+        {
+            DLOG(WARNING) << "Could not get robot pose";
+            // ROS_ERROR("Could not get robot pose");
             return false;
         }
 
-        if(_is_close_enough) {
-            ROS_INFO("Goal reached");
+        if (_is_close_enough)
+        {
+            DLOG(INFO) << "Goal reached";
+            // ROS_INFO("Goal reached");
             return true;
-        } else {
+        }
+        else
+        {
             return false;
         }
     }
@@ -316,7 +347,8 @@ namespace mpc_path_follower {
         return result;
     }
 
-    void MpcPathFollowerRos::publishGlobalPlan(std::vector<geometry_msgs::PoseStamped>& path) {
+    void MpcPathFollowerRos::publishGlobalPlan(std::vector<geometry_msgs::PoseStamped> &path)
+    {
         base_local_planner::publishPlan(path, g_plan_pub_);
     }
 };
