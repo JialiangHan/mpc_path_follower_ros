@@ -32,14 +32,6 @@ namespace mpc_path_follower {
          * @brief  Destructor for the wrapper
          */
         ~MpcPathFollowerRos(){};
-        /**
-         * @brief  Constructs the ros wrapper
-         * @param name The name to give this instance of the trajectory planner
-         * @param tf A pointer to a transform listener
-         * @param costmap The cost map to use for assigning costs to trajectories
-         */
-        void initialize(std::string name, tf::TransformListener* tf,
-                        costmap_2d::Costmap2DROS* costmap_ros);
 
         void initialize(std::string name, tf2_ros::Buffer *tf, costmap_2d::Costmap2DROS *costmap_ros);
         /**
@@ -93,7 +85,7 @@ namespace mpc_path_follower {
         void publishGlobalPlan(std::vector<geometry_msgs::PoseStamped>& path);
 
         // for visualization, publishers of global and local plan
-        ros::Publisher g_plan_pub_, l_plan_pub_, vel_pub_;
+        ros::Publisher g_plan_pub_, vel_pub_;
 
         ros::Publisher _pub_ref_path_odom, _pub_mpc_traj, _pub_ref_path_baselink;
 
@@ -102,7 +94,9 @@ namespace mpc_path_follower {
         geometry_msgs::PoseStamped current_pose_;
 
         bool initialized_;
-        bool debug_;
+        // bool debug_;
+
+        base_local_planner::LocalPlannerUtil planner_util_;
 
         base_local_planner::OdometryHelperRos odom_helper_;
 

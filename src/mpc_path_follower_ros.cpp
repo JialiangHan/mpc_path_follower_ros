@@ -31,39 +31,6 @@ namespace mpc_path_follower {
         DLOG(INFO) << "creating mpc_local_planner planner";
     }
 
-    void MpcPathFollowerRos::initialize(std::string name,
-                                           tf::TransformListener *tf,
-                                           costmap_2d::Costmap2DROS *costmap_ros)
-    {
-        if (!initialized_)
-        {
-
-            ros::NodeHandle private_nh("~/" + name);
-            ros::NodeHandle nh;
-            _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
-            _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
-            _pub_mpc_traj   = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1);// MPC trajectory output
-
-            costmap_ros_ = costmap_ros;
-            costmap_ros_->getRobotPose(current_pose_);
-            DT = 0.2;
-            // make sure to update the costmap we'll use for this cycle
-            costmap_2d::Costmap2D* costmap = costmap_ros_->getCostmap();
-
-            if (private_nh.getParam("odom_topic", odom_topic_))
-            {
-                odom_helper_.setOdomTopic(odom_topic_);
-            }
-
-            initialized_ = true;
-        }
-        else
-        {
-            DLOG(INFO) << "This planner has already been initialized, doing nothing.";
-            // ROS_WARN("This planner has already been initialized, doing nothing.");
-        }
-    }
-
     void MpcPathFollowerRos::initialize(std::string name, tf2_ros::Buffer *tf, costmap_2d::Costmap2DROS *costmap_ros)
     {
         if (!initialized_)
@@ -81,13 +48,14 @@ namespace mpc_path_follower {
             DT = 0.2;
             // make sure to update the costmap we'll use for this cycle
             costmap_2d::Costmap2D *costmap = costmap_ros_->getCostmap();
-
+            planner_util_.initialize(tf, costmap, costmap_ros_->getGlobalFrameID());
             if( private_nh.getParam( "odom_topic", odom_topic_ ))
             {
                 odom_helper_.setOdomTopic( odom_topic_ );
             }
 
             initialized_ = true;
+            DLOG(INFO) << "initialized.";
         }
         else
         {
@@ -106,6 +74,12 @@ namespace mpc_path_follower {
         }
         std::vector<geometry_msgs::PoseStamped> transformed_plan;
 
+        if (!planner_util_.getLocalPlan(current_pose_, transformed_plan))
+        {
+            DLOG(ERROR) << "MPC Could not get local plan";
+            // ROS_ERROR("MPC Could not get local plan");
+            return false;
+        }
         // if the global plan passed in is empty... we won't do anything
         if (transformed_plan.empty())
         {
