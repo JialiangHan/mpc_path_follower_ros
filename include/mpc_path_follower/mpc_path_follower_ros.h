@@ -5,8 +5,7 @@
  * @version:1.0.1
  * @brief:  interface between mpc and ros navigation
  *********************************************************************/
-#ifndef _MPC_PATH_FOLLOWER_ROS_H
-#define _MPC_PATH_FOLLOWER_ROS_H
+#pragma once
 #include <vector>
 #include <math.h>
 #include <mpc_path_follower/mpc_path_follower.h>
@@ -110,4 +109,3 @@ namespace mpc_path_follower {
         bool _is_close_enough;
     };
 };
-#endif

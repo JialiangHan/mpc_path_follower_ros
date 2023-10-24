@@ -34,6 +34,7 @@ catkin_package(
 ## Declare a C++ library
 add_library(mpc_path_follower
  src/mpc_path_follower_ros.cpp
+ src/mpc_path_follower.cpp
  )
 
 target_link_libraries(${PROJECT_NAME}

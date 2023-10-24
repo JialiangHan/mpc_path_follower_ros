@@ -264,6 +264,7 @@ namespace mpc_path_follower {
         // the local planner checks whether it is required to reinitialize the trajectory or not within each velocity computation step.
 
         _is_close_enough = false;
+        planner_util_.setPlan(global_plan_);
         return true;
     }
 
