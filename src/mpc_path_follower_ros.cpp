@@ -138,9 +138,11 @@ namespace mpc_path_follower {
         odom_helper_.getOdom(odom);
         double px = odom.pose.pose.position.x; //pose: odom frame
         double py = odom.pose.pose.position.y;
+        DLOG(INFO) << "px is " << px << " py is " << py;
         tf::Pose pose;
         tf::poseMsgToTF(odom.pose.pose, pose);
         double psi = tf::getYaw(pose.getRotation());
+        DLOG_IF(FATAL, std::isnan(psi)) << "psi is nan!!!!";
         // Waypoints related parameters
         double cospsi = cos(psi);
         double sinpsi = sin(psi);
@@ -186,15 +188,8 @@ namespace mpc_path_follower {
         double epsi = psi - atan(coeffs[1]);*/
         double cte = polyeval(coeffs, 0);
         double epsi = atan(coeffs[1]);
-        DLOG(INFO) << "psi is " << psi << " path size is" << path.size() << " waypoints x size is" << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is" << epsi;
-        // if (debug_){
-        // std::cout<<"psi is"<<std::endl;
-        // std::cout<<"path size is"<<path.size()<<std::endl;
-        // std::cout<<"waypoints x size is"<<waypoints_x.size()<<std::endl;
-        // std::cout<<"coeffs is "<<coeffs<<std::endl;
-        // std::cout<<"cte is"<<cte<<std::endl;
-        // std::cout<<"epsi is"<<epsi<<std::endl;
-        // }
+        DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is" << epsi;
+
         Eigen::VectorXd state(6);
         state << 0, 0, 0, vel[0], cte, epsi;
         std::vector<double> vars;
