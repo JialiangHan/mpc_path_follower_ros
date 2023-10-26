@@ -52,6 +52,12 @@ namespace mpc_path_follower {
             if( private_nh.getParam( "odom_topic", odom_topic_ ))
             {
                 odom_helper_.setOdomTopic( odom_topic_ );
+                // DLOG(INFO) << "odom topic set.";
+            }
+            else
+            {
+                odom_helper_.setOdomTopic("/odom");
+                // DLOG(INFO) << "odom topic set.";
             }
 
             initialized_ = true;
@@ -72,6 +78,7 @@ namespace mpc_path_follower {
             // ROS_ERROR("Could not get robot pose");
             return false;
         }
+        DLOG(INFO) << "current_pose_ is " << current_pose_.pose.position.x << " " << current_pose_.pose.position.y;
         std::vector<geometry_msgs::PoseStamped> transformed_plan;
 
         if (!planner_util_.getLocalPlan(current_pose_, transformed_plan))
@@ -130,18 +137,23 @@ namespace mpc_path_follower {
         for(int i = 0; i < path.size(); i++)
         {
             tempPose.pose = path.at(i).pose;
+            // DLOG(INFO) << "tempPose is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
             _mpc_ref_traj.poses.push_back(tempPose);
         }
         _pub_ref_path_odom.publish(_mpc_ref_traj);
-
-        nav_msgs::Odometry odom;
-        odom_helper_.getOdom(odom);
-        double px = odom.pose.pose.position.x; //pose: odom frame
-        double py = odom.pose.pose.position.y;
+        // current vehicle position
+        // nav_msgs::Odometry odom;
+        // odom_helper_.getOdom(odom);
+        // double px = odom.pose.pose.position.x; //pose: odom frame
+        // double py = odom.pose.pose.position.y;
+        double px = current_pose_.pose.position.x;
+        double py = current_pose_.pose.position.y;
         DLOG(INFO) << "px is " << px << " py is " << py;
-        tf::Pose pose;
-        tf::poseMsgToTF(odom.pose.pose, pose);
-        double psi = tf::getYaw(pose.getRotation());
+        // DLOG(INFO) << "current_pose_ is " << current_pose_.pose.position.x << " " << current_pose_.pose.position.y;
+        // tf::Pose pose;
+        // tf::poseMsgToTF(odom.pose.pose, pose);
+        // double psi = tf::getYaw(pose.getRotation());
+        double psi = tf::getYaw(current_pose_.pose.orientation);
         DLOG_IF(FATAL, std::isnan(psi)) << "psi is nan!!!!";
         // Waypoints related parameters
         double cospsi = cos(psi);
@@ -188,12 +200,12 @@ namespace mpc_path_follower {
         double epsi = psi - atan(coeffs[1]);*/
         double cte = polyeval(coeffs, 0);
         double epsi = atan(coeffs[1]);
-        DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is" << epsi;
+        DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is " << epsi;
 
         Eigen::VectorXd state(6);
         state << 0, 0, 0, vel[0], cte, epsi;
         std::vector<double> vars;
-        vars.clear();
+        // vars.clear();
         vars = mpc_solver.solve(state, coeffs);
         if (vars.size() < 2)
         {
@@ -201,8 +213,8 @@ namespace mpc_path_follower {
         }
         std::vector<double> mpc_x_vals;
         std::vector<double> mpc_y_vals;
-        mpc_x_vals.clear();
-        mpc_y_vals.clear();
+        // mpc_x_vals.clear();
+        // mpc_y_vals.clear();
         for (int i = 2; i < vars.size(); i ++) {
           if (i%2 == 0) {
             mpc_x_vals.push_back(vars[i]);
@@ -233,13 +245,17 @@ namespace mpc_path_follower {
         // ROS_INFO("Steer value and throttle value is, %lf , %lf", steer_value, throttle_value);
         cmd_vel.linear.x = vel[0] + vars[1] * DT;
         double radius = 0.0;
-        if (fabs(tan(steer_value)) <= 1e-2){
+        if (fabs(tan(steer_value)) <= 1e-2)
+        {
             radius = 1e5;
-        } else {
-            radius = 0.5 / tan(steer_value);}
+        }
+        else
+        {
+            radius = 0.5 / tan(steer_value);
+        }
         cmd_vel.angular.z = std::max(-1.0, std::min(1.0, (cmd_vel.linear.x / radius)));
         cmd_vel.linear.x = std::min(0.2, cmd_vel.linear.x);
-        DLOG(INFO) << "v value is " << cmd_vel.linear.x << " and z value is " << cmd_vel.angular.z;
+        DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " and z value is " << cmd_vel.angular.z;
         // ROS_INFO("v value and z value is, %lf , %lf", cmd_vel.linear.x, cmd_vel.angular.z);
         return true;
     }

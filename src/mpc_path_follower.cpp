@@ -65,7 +65,7 @@ namespace mpc_path_follower
             vars_upperbound[i] = 0.436332;
         }
 
-        // Acceleration/decceleration upper and lower limits.
+        // Acceleration/deceleration upper and lower limits.
         // NOTE: Feel free to change this to something else.
         for (int i = a_start; i < n_vars; i++)
         {
