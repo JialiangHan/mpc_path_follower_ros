@@ -45,7 +45,7 @@ namespace mpc_path_follower {
 
             costmap_ros_ = costmap_ros;
             costmap_ros_->getRobotPose(current_pose_);
-            DT = 0.2;
+            DT_ = 0.2;
             // make sure to update the costmap we'll use for this cycle
             costmap_2d::Costmap2D *costmap = costmap_ros_->getCostmap();
             planner_util_.initialize(tf, costmap, costmap_ros_->getGlobalFrameID());
@@ -142,17 +142,11 @@ namespace mpc_path_follower {
         }
         _pub_ref_path_odom.publish(_mpc_ref_traj);
         // current vehicle position
-        // nav_msgs::Odometry odom;
-        // odom_helper_.getOdom(odom);
-        // double px = odom.pose.pose.position.x; //pose: odom frame
-        // double py = odom.pose.pose.position.y;
         double px = current_pose_.pose.position.x;
         double py = current_pose_.pose.position.y;
         DLOG(INFO) << "px is " << px << " py is " << py;
         // DLOG(INFO) << "current_pose_ is " << current_pose_.pose.position.x << " " << current_pose_.pose.position.y;
-        // tf::Pose pose;
-        // tf::poseMsgToTF(odom.pose.pose, pose);
-        // double psi = tf::getYaw(pose.getRotation());
+        // current vehicle orientation angle
         double psi = tf::getYaw(current_pose_.pose.orientation);
         DLOG_IF(FATAL, std::isnan(psi)) << "psi is nan!!!!";
         // Waypoints related parameters
@@ -161,9 +155,6 @@ namespace mpc_path_follower {
         // Convert to the vehicle coordinate system
         std::vector<double> waypoints_x;
         std::vector<double> waypoints_y;
-        waypoints_x.clear();
-        waypoints_y.clear();
-
         // Display the MPC reference trajectory in odom coordinate
         nav_msgs::Path _vehicle_ref_traj;
         _vehicle_ref_traj.header.frame_id = "base_link"; // points in car coordinate
@@ -181,16 +172,16 @@ namespace mpc_path_follower {
         }
         _pub_ref_path_baselink.publish(_vehicle_ref_traj);
         int size_of_path = waypoints_x.size();
-        if (size_of_path <= 6){
+        if (size_of_path <= 6)
+        {
             _is_close_enough = true;
             return true;
         }
-        _is_close_enough = false;
+        // san ci duo xiang shi ni he.
         double* ptrx = &waypoints_x[0];
         double* ptry = &waypoints_y[0];
         Eigen::Map<Eigen::VectorXd> waypoints_x_eig(ptrx, size_of_path);
         Eigen::Map<Eigen::VectorXd> waypoints_y_eig(ptry, size_of_path);
-        // calculate cte and epsi
         auto coeffs = polyfit(waypoints_x_eig, waypoints_y_eig, 3);        
         /* The cross track error is calculated by evaluating at polynomial at x, f(x)
         and subtracting y.
@@ -198,30 +189,33 @@ namespace mpc_path_follower {
         Due to the sign starting at 0, the orientation error is -f'(x).
         derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
         double epsi = psi - atan(coeffs[1]);*/
+        // calculate cte, cross-track error.
+        // TODO change to cross-track error
         double cte = polyeval(coeffs, 0);
+        // and epsi,  orientation error.
+        // TODO change to orientation error
         double epsi = atan(coeffs[1]);
         DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is " << epsi;
-
+        // state: x,y,vehicle orientation angle, velocity,
         Eigen::VectorXd state(6);
         state << 0, 0, 0, vel[0], cte, epsi;
         std::vector<double> vars;
-        // vars.clear();
-        vars = mpc_solver.solve(state, coeffs);
+        vars = mpc_solver_.solve(state, coeffs);
         if (vars.size() < 2)
         {
             return false;
         }
-        std::vector<double> mpc_x_vals;
-        std::vector<double> mpc_y_vals;
-        // mpc_x_vals.clear();
-        // mpc_y_vals.clear();
-        for (int i = 2; i < vars.size(); i ++) {
-          if (i%2 == 0) {
-            mpc_x_vals.push_back(vars[i]);
-          }
-          else {
-            mpc_y_vals.push_back(vars[i]);
-          }
+        std::vector<double> mpc_x_vals, mpc_y_vals;
+        for (int i = 2; i < vars.size(); i++)
+        {
+            if (i % 2 == 0)
+            {
+                mpc_x_vals.push_back(vars[i]);
+            }
+            else
+            {
+                mpc_y_vals.push_back(vars[i]);
+            }
         }
 
         // Display the MPC predicted trajectory
@@ -243,7 +237,7 @@ namespace mpc_path_follower {
         throttle_value = vars[1];
         DLOG(INFO) << "Steer value is " << steer_value << " and throttle value is " << throttle_value;
         // ROS_INFO("Steer value and throttle value is, %lf , %lf", steer_value, throttle_value);
-        cmd_vel.linear.x = vel[0] + vars[1] * DT;
+        cmd_vel.linear.x = vel[0] + vars[1] * DT_;
         double radius = 0.0;
         if (fabs(tan(steer_value)) <= 1e-2)
         {
@@ -319,13 +313,17 @@ namespace mpc_path_follower {
         assert(order >= 1 && order <= xvals.size() - 1);
         Eigen::MatrixXd A(xvals.size(), order + 1);
 
-        for (int i = 0; i < xvals.size(); i++) {
+        for (int i = 0; i < xvals.size(); i++)
+        {
             A(i, 0) = 1.0;
         }
 
-        for (int j = 0; j < xvals.size(); j++) {
-            for (int i = 0; i < order; i++) {
+        for (int j = 0; j < xvals.size(); j++)
+        {
+            for (int i = 0; i < order; i++)
+            {
                 A(j, i + 1) = A(j, i) * xvals(j);
+                // DLOG(INFO) << j << "th element is " << xvals(j);
             }
         }
         auto Q = A.householderQr();

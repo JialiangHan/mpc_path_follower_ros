@@ -65,14 +65,14 @@ namespace mpc_path_follower {
         }
 
         /**
-         * @brief evaluate a polynominal
+         * @brief evaluate a polynominal. y= a*x^3 + b*x^2+c*x+d;
          * @param coefficients and input
          * @return output of the polynominal
          */
         double polyeval(Eigen::VectorXd coeffs, double x);
 
         /**
-         * @brief fit a polynominal
+         * @brief fit a polynominal, y= a*x^3 + b*x^2+c*x+d;
          * @param vector x, vector y and order
          * @return output coefficients
          */
@@ -104,8 +104,8 @@ namespace mpc_path_follower {
         std::vector<geometry_msgs::PoseStamped> global_plan_;
 
         Eigen::Vector3f vel;
-        float DT;
-        MPC_Path_Follower mpc_solver;
+        float DT_;
+        MPC_Path_Follower mpc_solver_;
         bool _is_close_enough;
     };
 };

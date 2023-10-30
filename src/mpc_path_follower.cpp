@@ -18,6 +18,7 @@ namespace mpc_path_follower
 
     std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     {
+        //
         x = state[0];
         y = state[1];
         psi = state[2];
