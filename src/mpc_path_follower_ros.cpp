@@ -153,8 +153,7 @@ namespace mpc_path_follower {
         double cospsi = cos(psi);
         double sinpsi = sin(psi);
         // Convert to the vehicle coordinate system
-        std::vector<double> waypoints_x;
-        std::vector<double> waypoints_y;
+        std::vector<double> waypoints_x, waypoints_y;
         // Display the MPC reference trajectory in odom coordinate
         nav_msgs::Path _vehicle_ref_traj;
         _vehicle_ref_traj.header.frame_id = "base_link"; // points in car coordinate
@@ -196,7 +195,7 @@ namespace mpc_path_follower {
         // TODO change to orientation error
         double epsi = atan(coeffs[1]);
         DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is " << epsi;
-        // state: x,y,vehicle orientation angle, velocity,
+        // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         Eigen::VectorXd state(6);
         state << 0, 0, 0, vel[0], cte, epsi;
         std::vector<double> vars;

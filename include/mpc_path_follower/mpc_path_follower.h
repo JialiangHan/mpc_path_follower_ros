@@ -28,10 +28,8 @@ namespace mpc_path_follower
   private:
     size_t N = 20; // timesteps
     // This is the length from front to CoG that has a similar radius.
-    // const double Lf = 2.67;
     const double Lf = 0.23;
-    double dt = 0.1; // frequency
-    // double ref_v = 70; //references_velocity
+    double dt = 0.1;    // frequency
     double ref_v = 0.5; // references_velocity
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
@@ -59,13 +57,13 @@ namespace mpc_path_follower
       // The part of the cost based on the reference state.
       // TODO: Define the cost related the reference state and
       // any anything you think may be beneficial.
+      // TODO: change ref_v to ????, this is cost function
       for (int t = 0; t < N; t++)
       {
         fg[0] += 100 * CppAD::pow(vars[cte_start + t], 2);
         fg[0] += 100 * CppAD::pow(vars[epsi_start + t], 2);
         fg[0] += 100 * CppAD::pow(vars[v_start + t] - ref_v, 2);
       }
-
       // Minimize the use of actuators.
       for (int t = 0; t < N - 1; t++)
       {
@@ -135,6 +133,7 @@ namespace mpc_path_follower
         // cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
         // epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
         //!!!!!!!!!!there some changes on psi and epsi
+        // TODO change model here.
         fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
         fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
         fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf * dt); // 这个地方可能是符号的问题
@@ -178,8 +177,7 @@ namespace mpc_path_follower
     // This is the length from front to CoG that has a similar radius.
     // const double Lf = 2.67;
     const double Lf = 0.23;
-    double dt = 0.1; // frequency
-    // double ref_v = 70; //references_velocity
+    double dt = 0.1;    // frequency
     double ref_v = 0.5; // references_velocity
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish

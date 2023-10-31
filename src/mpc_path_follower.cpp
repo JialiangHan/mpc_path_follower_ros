@@ -12,13 +12,11 @@ namespace mpc_path_follower
 {
     void MPC_Path_Follower::initialize()
     {
-
-        int i = 0;
     }
 
     std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     {
-        //
+        // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         x = state[0];
         y = state[1];
         psi = state[2];
@@ -26,13 +24,22 @@ namespace mpc_path_follower
         cte = state[4];
         epsi = state[5];
         // number of independent variables
-        // N timesteps == N - 1 actuations
+        // N timesteps == N - 1 actuation
         n_vars = N * 6 + (N - 1) * 2;
         // Number of constraints
         n_constraints = N * 6;
         // Initial value of the independent variables.
         // Should be 0 except for the initial values.
+        // x_start to y_start-1 is x position
+        // y_start to psi_start -1 is y position
+        // psi_start to v_start -1 is vehicle orientation
+        // v_start to cte_start -1 is velocity
+        // cte_start to epsi_start -1 is tracking error
+        // epsi_start to delta_start -1 is ????
+        // delta_start to a_start-1 is ????
+        // a_start to end is ???
         Dvector vars(n_vars);
+        // reset to zero.
         for (int i = 0; i < n_vars; i++)
         {
             vars[i] = 0.0;
@@ -48,9 +55,10 @@ namespace mpc_path_follower
         // Lower and upper limits for x
         Dvector vars_lowerbound(n_vars);
         Dvector vars_upperbound(n_vars);
-
-        // Set all non-actuators upper and lowerlimits
-        // to the max negative and positive values.
+        // TODO constraints are needed to be revised
+        //  Set all non-actuators upper and lower limits
+        //  to the max negative and positive values.
+        //  constraints for [0,y_start -1] x position
         for (int i = 0; i < delta_start; i++)
         {
             vars_lowerbound[i] = -1.0e19;
@@ -111,8 +119,14 @@ namespace mpc_path_follower
 
         // place to return solution
         CppAD::ipopt::solve_result<Dvector> solution;
-
-        // solve the problem
+        // vars	initial argument value to start optimization procedure at.
+        // vars_lowerbound	lower limit for argument during optimization
+        // vars_upperbound	upper limit for argument during optimization
+        // constraints_lowerbound	lower limit for g(x) during optimization.
+        // constraints_upperbound	upper limit for g(x) during optimization.
+        // fg_eval	function that evaluates the objective and constraints using the syntax
+        // fg_eval(fg, x)
+        // solution	structure that holds the solution of the optimization
         CppAD::ipopt::solve<Dvector, FG_eval>(
             options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound,
             constraints_upperbound, fg_eval, solution);
