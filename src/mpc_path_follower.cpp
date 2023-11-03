@@ -10,12 +10,25 @@
 
 namespace mpc_path_follower
 {
-    void MPC_Path_Follower::initialize()
+
+    FG_eval::FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &Lf, const double &dt)
     {
+        this->coeffs = coeffs;
+        predicted_length_ = predicted_length;
+        Lf_ = Lf;
+        dt_ = dt;
+        DLOG(INFO) << "out of FG_eval.";
     }
 
+    MPC_Path_Follower::MPC_Path_Follower(const int &predicted_length, const double &Lf, const double &dt)
+    {
+        predicted_length_ = predicted_length;
+        Lf_ = Lf;
+        dt_ = dt;
+    }
     std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     {
+        DLOG(INFO) << "in solve.";
         // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         x = state[0];
         y = state[1];
@@ -23,11 +36,12 @@ namespace mpc_path_follower
         v = state[3];
         cte = state[4];
         epsi = state[5];
+        DLOG(INFO) << "in line 39.";
         // number of independent variables
         // N timesteps == N - 1 actuation
-        n_vars = N * 6 + (N - 1) * 2;
+        n_vars = predicted_length_ * 6 + (predicted_length_ - 1) * 2;
         // Number of constraints
-        n_constraints = N * 6;
+        n_constraints = predicted_length_ * 6;
         // Initial value of the independent variables.
         // Should be 0 except for the initial values.
         // x_start to y_start-1 is x position
@@ -44,6 +58,7 @@ namespace mpc_path_follower
         {
             vars[i] = 0.0;
         }
+        DLOG(INFO) << "size of vars is " << vars.size();
         // Set the initial variable values
         vars[x_start] = x;
         vars[y_start] = y;
@@ -105,9 +120,10 @@ namespace mpc_path_follower
         constraints_upperbound[v_start] = v;
         constraints_upperbound[cte_start] = cte;
         constraints_upperbound[epsi_start] = epsi;
-        // Object that computes objective and constraints
-        FG_eval fg_eval(coeffs);
 
+        DLOG(INFO) << "122th row.";
+        // Object that computes objective and constraints
+        FG_eval fg_eval(coeffs, predicted_length_, Lf_, dt_);
         // options
         std::string options;
         options += "Integer print_level  0\n";
@@ -127,10 +143,11 @@ namespace mpc_path_follower
         // fg_eval	function that evaluates the objective and constraints using the syntax
         // fg_eval(fg, x)
         // solution	structure that holds the solution of the optimization
+        DLOG(INFO) << "before solve.";
         CppAD::ipopt::solve<Dvector, FG_eval>(
             options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound,
             constraints_upperbound, fg_eval, solution);
-
+        DLOG(INFO) << "after solve";
         ok = true;
         // Check some of the solution values
         ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
@@ -142,7 +159,7 @@ namespace mpc_path_follower
         result.push_back(solution.x[delta_start]);
         result.push_back(solution.x[a_start]);
 
-        for (int i = 0; i < N - 1; i++)
+        for (int i = 0; i < predicted_length_ - 1; i++)
         {
             result.push_back(solution.x[x_start + i + 1]);
             result.push_back(solution.x[y_start + i + 1]);

@@ -17,7 +17,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "glog/logging.h"
 #include "gflags/gflags.h"
-
+#include "parameter_manager.h"
 namespace mpc_path_follower
 {
   using CppAD::AD;
@@ -25,29 +25,13 @@ namespace mpc_path_follower
   // class that computes objective and constraints
   class FG_eval
   {
-  private:
-    size_t N = 20; // timesteps
-    // This is the length from front to CoG that has a similar radius.
-    const double Lf = 0.23;
-    double dt = 0.1;    // frequency
-    double ref_v = 0.5; // references_velocity
-    // The solver takes all the state variables and actuator
-    // variables in a singular vector. Thus, we should to establish
-    // when one variable starts and another ends to make our lifes easier.
-    size_t x_start = 0;
-    size_t y_start = x_start + N;
-    size_t psi_start = y_start + N;
-    size_t v_start = psi_start + N;
-    size_t cte_start = v_start + N;
-    size_t epsi_start = cte_start + N;
-    size_t delta_start = epsi_start + N;
-    size_t a_start = delta_start + N - 1;
 
   public:
     typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
     Eigen::VectorXd coeffs;
     // Coefficients of the fitted polynomial.
-    FG_eval(Eigen::VectorXd coeffs) { this->coeffs = coeffs; }
+    FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &Lf, const double &dt);
+
     void operator()(ADvector &fg, const ADvector &vars)
     {
       // The cost is stored is the first element of `fg`.
@@ -58,14 +42,14 @@ namespace mpc_path_follower
       // TODO: Define the cost related the reference state and
       // any anything you think may be beneficial.
       // TODO: change ref_v to ????, this is cost function
-      for (int t = 0; t < N; t++)
+      for (int t = 0; t < predicted_length_; t++)
       {
         fg[0] += 100 * CppAD::pow(vars[cte_start + t], 2);
         fg[0] += 100 * CppAD::pow(vars[epsi_start + t], 2);
         fg[0] += 100 * CppAD::pow(vars[v_start + t] - ref_v, 2);
       }
       // Minimize the use of actuators.
-      for (int t = 0; t < N - 1; t++)
+      for (int t = 0; t < predicted_length_ - 1; t++)
       {
         fg[0] += 100 * CppAD::pow(vars[delta_start + t], 2);
         fg[0] += 50 * CppAD::pow(vars[a_start + t], 2);
@@ -73,7 +57,7 @@ namespace mpc_path_follower
         // fg[0] += 700*CppAD::pow(vars[delta_start + t] * vars[v_start+t], 2);
       }
       // Minimize the value gap between sequential actuations.
-      for (int t = 0; t < N - 2; t++)
+      for (int t = 0; t < predicted_length_ - 2; t++)
       {
         fg[0] += 0 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
         fg[0] += 0 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
@@ -91,7 +75,7 @@ namespace mpc_path_follower
       fg[1 + epsi_start] = vars[epsi_start];
 
       // The rest of the constraints
-      for (int t = 1; t < N; t++)
+      for (int t = 1; t < predicted_length_; t++)
       {
         // The state at time t+1 .
         AD<double> x1 = vars[x_start + t];
@@ -114,7 +98,7 @@ namespace mpc_path_follower
         AD<double> a0 = vars[a_start + t - 1];
 
         if (t > 1)
-        { // use previous actuations (to account for latency)
+        { // use previous actuation (to account for latency)
           a0 = vars[a_start + t - 2];
           delta0 = vars[delta_start + t - 2];
         }
@@ -126,24 +110,42 @@ namespace mpc_path_follower
         // The idea here is to constraint this value to be 0.
         //
         // Recall the equations for the model:
-        // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
-        // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
-        // psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
-        // v_[t+1] = v[t] + a[t] * dt
-        // cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
-        // epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
+        // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt_
+        // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt_
+        // psi_[t+1] = psi[t] + v[t] / Lf_ * delta[t] * dt_
+        // v_[t+1] = v[t] + a[t] * dt_
+        // cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt_
+        // epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf_ * dt_
         //!!!!!!!!!!there some changes on psi and epsi
         // TODO change model here.
-        fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
-        fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
-        fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf * dt); // 这个地方可能是符号的问题
-        fg[1 + v_start + t] = v1 - (v0 + a0 * dt);
+        fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt_);
+        fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt_);
+        fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf_ * dt_); // 这个地方可能是符号的问题
+        fg[1 + v_start + t] = v1 - (v0 + a0 * dt_);
         fg[1 + cte_start + t] =
-            cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
+            cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt_));
         fg[1 + epsi_start + t] =
-            epsi1 - ((psi0 - psides0) - v0 * delta0 / Lf * dt);
+            epsi1 - ((psi0 - psides0) - v0 * delta0 / Lf_ * dt_);
       }
     }
+
+  private:
+    size_t predicted_length_ = 20; // timesteps
+    // This is the length from front to CoG that has a similar radius.
+    double Lf_;
+    double dt_;         // frequency
+    double ref_v = 0.5; // references_velocity
+    // The solver takes all the state variables and actuator
+    // variables in a singular vector. Thus, we should to establish
+    // when one variable starts and another ends to make our lifes easier.
+    size_t x_start = 0;
+    size_t y_start = x_start + predicted_length_;
+    size_t psi_start = y_start + predicted_length_;
+    size_t v_start = psi_start + predicted_length_;
+    size_t cte_start = v_start + predicted_length_;
+    size_t epsi_start = cte_start + predicted_length_;
+    size_t delta_start = epsi_start + predicted_length_;
+    size_t a_start = delta_start + predicted_length_ - 1;
   };
 
   // class mpc path follower
@@ -153,7 +155,7 @@ namespace mpc_path_follower
   public:
     typedef CPPAD_TESTVECTOR(double) Dvector;
     MPC_Path_Follower() = default;
-    void initialize();
+    MPC_Path_Follower(const int &predicted_length, const double &Lf, const double &dt);
 
     std::vector<double> solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
 
@@ -173,22 +175,22 @@ namespace mpc_path_follower
     std::string options;
     bool ok;
     std::vector<double> result;
-    size_t N = 20; // timesteps
+    size_t predicted_length_; // timesteps
     // This is the length from front to CoG that has a similar radius.
-    // const double Lf = 2.67;
-    const double Lf = 0.23;
-    double dt = 0.1;    // frequency
+    // const double Lf_ = 2.67;
+    double Lf_;
+    double dt_;         // frequency
     double ref_v = 0.5; // references_velocity
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
     // when one variable starts and another ends to make our life easier.
     size_t x_start = 0;
-    size_t y_start = x_start + N;
-    size_t psi_start = y_start + N;
-    size_t v_start = psi_start + N;
-    size_t cte_start = v_start + N;
-    size_t epsi_start = cte_start + N;
-    size_t delta_start = epsi_start + N;
-    size_t a_start = delta_start + N - 1;
+    size_t y_start = x_start + predicted_length_;
+    size_t psi_start = y_start + predicted_length_;
+    size_t v_start = psi_start + predicted_length_;
+    size_t cte_start = v_start + predicted_length_;
+    size_t epsi_start = cte_start + predicted_length_;
+    size_t delta_start = epsi_start + predicted_length_;
+    size_t a_start = delta_start + predicted_length_ - 1;
   };
 };

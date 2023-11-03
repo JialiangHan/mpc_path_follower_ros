@@ -20,6 +20,8 @@
 #include <base_local_planner/latched_stop_rotate_controller.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
+#include "parameter_manager.h"
+
 namespace mpc_path_follower {
     class MpcPathFollowerRos : public nav_core::BaseLocalPlanner{
     public:
@@ -107,5 +109,7 @@ namespace mpc_path_follower {
         float DT_;
         MPC_Path_Follower mpc_solver_;
         bool _is_close_enough;
+
+        ParameterManager params_;
     };
 };

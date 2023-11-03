@@ -39,6 +39,8 @@ namespace mpc_path_follower {
             ros::NodeHandle private_nh("~/" + name);
             ros::NodeHandle nh;
 
+            // load parameter:
+            params_.loadRosParamFromNodeHandle(nh);
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
             _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
             _pub_mpc_traj = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1); // MPC trajectory output
@@ -144,7 +146,7 @@ namespace mpc_path_follower {
         // current vehicle position
         double px = current_pose_.pose.position.x;
         double py = current_pose_.pose.position.y;
-        DLOG(INFO) << "px is " << px << " py is " << py;
+        // DLOG(INFO) << "px is " << px << " py is " << py;
         // DLOG(INFO) << "current_pose_ is " << current_pose_.pose.position.x << " " << current_pose_.pose.position.y;
         // current vehicle orientation angle
         double psi = tf::getYaw(current_pose_.pose.orientation);
@@ -194,7 +196,12 @@ namespace mpc_path_follower {
         // and epsi,  orientation error.
         // TODO change to orientation error
         double epsi = atan(coeffs[1]);
-        DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " coeffs is " << coeffs << " cte is" << cte << " epsi is " << epsi;
+        DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " cte is" << cte << " epsi is " << epsi;
+        for (int i = 0; i < coeffs.size(); i++)
+        {
+            DLOG(INFO) << "element in coeffs is " << coeffs[i];
+        }
+
         // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         Eigen::VectorXd state(6);
         state << 0, 0, 0, vel[0], cte, epsi;

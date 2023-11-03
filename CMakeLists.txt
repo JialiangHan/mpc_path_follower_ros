@@ -35,6 +35,7 @@ catkin_package(
 add_library(mpc_path_follower
  src/mpc_path_follower_ros.cpp
  src/mpc_path_follower.cpp
+ src/parameter_manager.cpp
  )
 
 target_link_libraries(${PROJECT_NAME}
