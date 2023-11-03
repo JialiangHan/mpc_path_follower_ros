@@ -31,7 +31,7 @@ namespace mpc_path_follower
     nh.getParam("max_linear_acceleration", max_linear_acceleration);
     nh.getParam("min_linear_acceleration", min_linear_acceleration);
 
-    nh.getParam("Lf", Lf);
+    nh.getParam("vehicle_Lf", vehicle_Lf);
     nh.getParam("predicted_length", predicted_length);
   }
 

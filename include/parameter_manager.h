@@ -41,7 +41,7 @@ namespace mpc_path_follower
     float min_linear_acceleration;
 
     // MPC parameter
-    float Lf;
+    float vehicle_Lf;
     int predicted_length;
     ParameterManager()
     {
@@ -71,7 +71,7 @@ namespace mpc_path_follower
       max_linear_acceleration = 4;
       min_linear_acceleration = -4;
 
-      Lf = 0.23;
+      vehicle_Lf = 0.23;
       predicted_length = 20;
     }
 

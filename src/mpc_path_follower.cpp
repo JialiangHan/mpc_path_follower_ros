@@ -11,20 +11,34 @@
 namespace mpc_path_follower
 {
 
-    FG_eval::FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &Lf, const double &dt)
+    FG_eval::FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency)
     {
         this->coeffs = coeffs;
         predicted_length_ = predicted_length;
-        Lf_ = Lf;
-        dt_ = dt;
-        DLOG(INFO) << "out of FG_eval.";
+        vehicle_Lf_ = vehicle_Lf;
+        dt_ = 1 / planning_frequency;
+        y_start = x_start + predicted_length_;
+        psi_start = y_start + predicted_length_;
+        v_start = psi_start + predicted_length_;
+        cte_start = v_start + predicted_length_;
+        epsi_start = cte_start + predicted_length_;
+        delta_start = epsi_start + predicted_length_;
+        a_start = delta_start + predicted_length_ - 1;
+        // DLOG(INFO) << "out of FG_eval.";
     }
 
-    MPC_Path_Follower::MPC_Path_Follower(const int &predicted_length, const double &Lf, const double &dt)
+    void MPC_Path_Follower::initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency)
     {
         predicted_length_ = predicted_length;
-        Lf_ = Lf;
-        dt_ = dt;
+        vehicle_Lf_ = vehicle_Lf;
+        dt_ = 1 / planning_frequency;
+        y_start = x_start + predicted_length_;
+        psi_start = y_start + predicted_length_;
+        v_start = psi_start + predicted_length_;
+        cte_start = v_start + predicted_length_;
+        epsi_start = cte_start + predicted_length_;
+        delta_start = epsi_start + predicted_length_;
+        a_start = delta_start + predicted_length_ - 1;
     }
     std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     {
@@ -36,10 +50,11 @@ namespace mpc_path_follower
         v = state[3];
         cte = state[4];
         epsi = state[5];
-        DLOG(INFO) << "in line 39.";
+        // DLOG(INFO) << "in line 39.";
         // number of independent variables
         // N timesteps == N - 1 actuation
         n_vars = predicted_length_ * 6 + (predicted_length_ - 1) * 2;
+        // DLOG(INFO) << "n_vars is " << n_vars << " predicted_length_ is " << predicted_length_;
         // Number of constraints
         n_constraints = predicted_length_ * 6;
         // Initial value of the independent variables.
@@ -66,14 +81,14 @@ namespace mpc_path_follower
         vars[v_start] = v;
         vars[cte_start] = cte;
         vars[epsi_start] = epsi;
-
+        // DLOG(INFO) << "in line 70.";
         // Lower and upper limits for x
         Dvector vars_lowerbound(n_vars);
         Dvector vars_upperbound(n_vars);
         // TODO constraints are needed to be revised
         //  Set all non-actuators upper and lower limits
         //  to the max negative and positive values.
-        //  constraints for [0,y_start -1] x position
+        // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
         for (int i = 0; i < delta_start; i++)
         {
             vars_lowerbound[i] = -1.0e19;
@@ -83,6 +98,7 @@ namespace mpc_path_follower
         // The upper and lower limits of delta are set to -25 and 25
         // degrees (values in radians).
         // NOTE: Feel free to change this to something else.
+        // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
         for (int i = delta_start; i < a_start; i++)
         {
             vars_lowerbound[i] = -0.436332;
@@ -91,12 +107,13 @@ namespace mpc_path_follower
 
         // Acceleration/deceleration upper and lower limits.
         // NOTE: Feel free to change this to something else.
+        DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
         for (int i = a_start; i < n_vars; i++)
         {
             vars_lowerbound[i] = -1.0;
             vars_upperbound[i] = 1.0;
         }
-
+        // DLOG(INFO) << "in line 99";
         // Lower and upper limits for constraints
         // All of these should be 0 except the initial
         // state indices.
@@ -107,6 +124,7 @@ namespace mpc_path_follower
             constraints_lowerbound[i] = 0;
             constraints_upperbound[i] = 0;
         }
+        // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start;
         constraints_lowerbound[x_start] = x;
         constraints_lowerbound[y_start] = y;
         constraints_lowerbound[psi_start] = psi;
@@ -121,9 +139,9 @@ namespace mpc_path_follower
         constraints_upperbound[cte_start] = cte;
         constraints_upperbound[epsi_start] = epsi;
 
-        DLOG(INFO) << "122th row.";
+        // DLOG(INFO) << "122th row.";
         // Object that computes objective and constraints
-        FG_eval fg_eval(coeffs, predicted_length_, Lf_, dt_);
+        FG_eval fg_eval(coeffs, predicted_length_, vehicle_Lf_, dt_);
         // options
         std::string options;
         options += "Integer print_level  0\n";
@@ -143,11 +161,11 @@ namespace mpc_path_follower
         // fg_eval	function that evaluates the objective and constraints using the syntax
         // fg_eval(fg, x)
         // solution	structure that holds the solution of the optimization
-        DLOG(INFO) << "before solve.";
+        // DLOG(INFO) << "before solve.";
         CppAD::ipopt::solve<Dvector, FG_eval>(
             options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound,
             constraints_upperbound, fg_eval, solution);
-        DLOG(INFO) << "after solve";
+        // DLOG(INFO) << "after solve";
         ok = true;
         // Check some of the solution values
         ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;

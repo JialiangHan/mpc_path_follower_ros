@@ -30,7 +30,7 @@ namespace mpc_path_follower
     typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
     Eigen::VectorXd coeffs;
     // Coefficients of the fitted polynomial.
-    FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &Lf, const double &dt);
+    FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency);
 
     void operator()(ADvector &fg, const ADvector &vars)
     {
@@ -120,32 +120,32 @@ namespace mpc_path_follower
         // TODO change model here.
         fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt_);
         fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt_);
-        fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf_ * dt_); // 这个地方可能是符号的问题
+        fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / vehicle_Lf_ * dt_); // 这个地方可能是符号的问题
         fg[1 + v_start + t] = v1 - (v0 + a0 * dt_);
         fg[1 + cte_start + t] =
             cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt_));
         fg[1 + epsi_start + t] =
-            epsi1 - ((psi0 - psides0) - v0 * delta0 / Lf_ * dt_);
+            epsi1 - ((psi0 - psides0) - v0 * delta0 / vehicle_Lf_ * dt_);
       }
     }
 
   private:
     size_t predicted_length_ = 20; // timesteps
     // This is the length from front to CoG that has a similar radius.
-    double Lf_;
+    double vehicle_Lf_;
     double dt_;         // frequency
     double ref_v = 0.5; // references_velocity
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
     // when one variable starts and another ends to make our lifes easier.
     size_t x_start = 0;
-    size_t y_start = x_start + predicted_length_;
-    size_t psi_start = y_start + predicted_length_;
-    size_t v_start = psi_start + predicted_length_;
-    size_t cte_start = v_start + predicted_length_;
-    size_t epsi_start = cte_start + predicted_length_;
-    size_t delta_start = epsi_start + predicted_length_;
-    size_t a_start = delta_start + predicted_length_ - 1;
+    size_t y_start;
+    size_t psi_start;
+    size_t v_start;
+    size_t cte_start;
+    size_t epsi_start;
+    size_t delta_start;
+    size_t a_start;
   };
 
   // class mpc path follower
@@ -155,7 +155,8 @@ namespace mpc_path_follower
   public:
     typedef CPPAD_TESTVECTOR(double) Dvector;
     MPC_Path_Follower() = default;
-    MPC_Path_Follower(const int &predicted_length, const double &Lf, const double &dt);
+
+    void initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency);
 
     std::vector<double> solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
 
@@ -178,19 +179,19 @@ namespace mpc_path_follower
     size_t predicted_length_; // timesteps
     // This is the length from front to CoG that has a similar radius.
     // const double Lf_ = 2.67;
-    double Lf_;
+    double vehicle_Lf_;
     double dt_;         // frequency
     double ref_v = 0.5; // references_velocity
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
     // when one variable starts and another ends to make our life easier.
     size_t x_start = 0;
-    size_t y_start = x_start + predicted_length_;
-    size_t psi_start = y_start + predicted_length_;
-    size_t v_start = psi_start + predicted_length_;
-    size_t cte_start = v_start + predicted_length_;
-    size_t epsi_start = cte_start + predicted_length_;
-    size_t delta_start = epsi_start + predicted_length_;
-    size_t a_start = delta_start + predicted_length_ - 1;
+    size_t y_start;
+    size_t psi_start;
+    size_t v_start;
+    size_t cte_start;
+    size_t epsi_start;
+    size_t delta_start;
+    size_t a_start;
   };
 };

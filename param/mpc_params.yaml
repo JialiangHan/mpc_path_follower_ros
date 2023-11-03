@@ -6,7 +6,6 @@ controller_freq: 10
 vehicle_Lf: 0.25 # distance between the front of the vehicle and its center of gravity
 predicted_length: 20
 # Parameter for MPC solver
-mpc_steps: 20.0
 mpc_ref_cte: 0.0
 mpc_ref_epsi: 0.0
 mpc_ref_vel: 0.5

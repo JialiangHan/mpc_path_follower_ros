@@ -41,6 +41,9 @@ namespace mpc_path_follower {
 
             // load parameter:
             params_.loadRosParamFromNodeHandle(nh);
+
+            mpc_solver_.initialize(params_.predicted_length, params_.vehicle_Lf, params_.planning_frequency);
+
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
             _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
             _pub_mpc_traj = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1); // MPC trajectory output
