@@ -45,8 +45,11 @@ namespace mpc_path_follower {
             mpc_solver_.initialize(params_.predicted_length, params_.vehicle_Lf, params_.planning_frequency);
 
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
-            _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
-            _pub_mpc_traj = nh.advertise<nav_msgs::Path>("/mpc_trajectory", 1); // MPC trajectory output
+            // _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
+
+            _pub_mpc_traj_vehicle = nh.advertise<nav_msgs::Path>("/_pub_mpc_traj_vehicle", 1); // MPC trajectory output
+
+            _pub_mpc_traj_map = nh.advertise<nav_msgs::Path>("/_pub_mpc_traj_map", 1); // MPC trajectory output
 
             costmap_ros_ = costmap_ros;
             costmap_ros_->getRobotPose(current_pose_);
@@ -99,7 +102,7 @@ namespace mpc_path_follower {
             // ROS_WARN_NAMED("mpc_local_planner", "Received an empty transformed plan.");
             return false;
         }
-        DLOG(INFO) << "mpc_local_planner: Received a transformed plan with " << transformed_plan.size() << " points.";
+        // DLOG(INFO) << "mpc_local_planner: Received a transformed plan with " << transformed_plan.size() << " points.";
         // ROS_FATAL_NAMED("mpc_local_planner", "Received a transformed plan with %zu points.", transformed_plan.size());
 
         if (isGoalReached())
@@ -142,7 +145,7 @@ namespace mpc_path_follower {
         for(int i = 0; i < path.size(); i++)
         {
             tempPose.pose = path.at(i).pose;
-            // DLOG(INFO) << "tempPose is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
+            // DLOG(INFO) << "local path is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
             _mpc_ref_traj.poses.push_back(tempPose);
         }
         _pub_ref_path_odom.publish(_mpc_ref_traj);
@@ -173,8 +176,9 @@ namespace mpc_path_follower {
             tempPose.pose.position.x = dx * cospsi + dy * sinpsi;
             tempPose.pose.position.y = dy * cospsi - dx * sinpsi;
             _vehicle_ref_traj.poses.push_back(tempPose);
+            // DLOG(INFO) << "local path at vehicle frame is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
         }
-        _pub_ref_path_baselink.publish(_vehicle_ref_traj);
+        // _pub_ref_path_baselink.publish(_vehicle_ref_traj);
         int size_of_path = waypoints_x.size();
         if (size_of_path <= 6)
         {
@@ -199,22 +203,24 @@ namespace mpc_path_follower {
         // and epsi,  orientation error.
         // TODO change to orientation error
         double epsi = atan(coeffs[1]);
-        DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " cte is" << cte << " epsi is " << epsi;
-        for (int i = 0; i < coeffs.size(); i++)
-        {
-            DLOG(INFO) << "element in coeffs is " << coeffs[i];
-        }
+        // DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " cte is" << cte << " epsi is " << epsi;
+        // for (int i = 0; i < coeffs.size(); i++)
+        // {
+        //     DLOG(INFO) << "element in coeffs is " << coeffs[i];
+        // }
 
         // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         Eigen::VectorXd state(6);
         state << 0, 0, 0, vel[0], cte, epsi;
         std::vector<double> vars;
         vars = mpc_solver_.solve(state, coeffs);
+        DLOG(INFO) << "vars size is " << vars.size();
         if (vars.size() < 2)
         {
             return false;
         }
         std::vector<double> mpc_x_vals, mpc_y_vals;
+        // why divided 2?
         for (int i = 2; i < vars.size(); i++)
         {
             if (i % 2 == 0)
@@ -226,22 +232,40 @@ namespace mpc_path_follower {
                 mpc_y_vals.push_back(vars[i]);
             }
         }
-
-        // Display the MPC predicted trajectory
+        //  Display the MPC predicted trajectory
         nav_msgs::Path _mpc_predi_traj;
         _mpc_predi_traj.header.frame_id = "base_link"; // points in car coordinate
         _mpc_predi_traj.header.stamp = ros::Time::now();
         tempPose.header = _mpc_predi_traj.header;
-        for(int i = 2; i < mpc_x_vals.size() - 3; i++)
+        // TODO why i start from 2???
+        DLOG(INFO) << "mpc_x_vals size is " << mpc_x_vals.size() << " mpc_y_vals size is " << mpc_y_vals.size();
+        for (int i = 2; i < mpc_x_vals.size() - 3; i++)
         {
             tempPose.pose.position.x = mpc_x_vals[i];
             tempPose.pose.position.y = mpc_y_vals[i];
             tempPose.pose.orientation.w = 1.0;
             _mpc_predi_traj.poses.push_back(tempPose);
+            // DLOG(INFO) << "_mpc_predi_traj base_link is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
         }
-        _pub_mpc_traj.publish(_mpc_predi_traj);
+        _pub_mpc_traj_vehicle.publish(_mpc_predi_traj);
 
-        double steer_value = 0.0, throttle_value = 0.0;
+        // TODO transfer this trajectory to map frame
+        //  Display the MPC predicted trajectory
+        nav_msgs::Path _mpc_predi_traj_map;
+        _mpc_predi_traj_map.header.frame_id = "map"; // points in map coordinate
+        _mpc_predi_traj_map.header.stamp = ros::Time::now();
+        tempPose.header = _mpc_predi_traj_map.header;
+        for (int i = 2; i < mpc_x_vals.size() - 3; i++)
+        {
+            tempPose.pose.position.x = mpc_x_vals[i] + px;
+            tempPose.pose.position.y = mpc_y_vals[i] + py;
+            tempPose.pose.orientation.w = 1.0;
+            _mpc_predi_traj_map.poses.push_back(tempPose);
+            // DLOG(INFO) << "_mpc_predi_traj_map is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
+        }
+        _pub_mpc_traj_vehicle.publish(_mpc_predi_traj_map);
+
+        double steer_value, throttle_value;
         steer_value = vars[0];
         throttle_value = vars[1];
         DLOG(INFO) << "Steer value is " << steer_value << " and throttle value is " << throttle_value;
@@ -256,6 +280,7 @@ namespace mpc_path_follower {
         {
             radius = 0.5 / tan(steer_value);
         }
+
         cmd_vel.angular.z = std::max(-1.0, std::min(1.0, (cmd_vel.linear.x / radius)));
         cmd_vel.linear.x = std::min(0.2, cmd_vel.linear.x);
         DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " and z value is " << cmd_vel.angular.z;

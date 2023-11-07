@@ -41,18 +41,18 @@ namespace mpc_path_follower
       // The part of the cost based on the reference state.
       // TODO: Define the cost related the reference state and
       // any anything you think may be beneficial.
-      // TODO: change ref_v to ????, this is cost function
       for (int t = 0; t < predicted_length_; t++)
       {
         fg[0] += 100 * CppAD::pow(vars[cte_start + t], 2);
         fg[0] += 100 * CppAD::pow(vars[epsi_start + t], 2);
-        fg[0] += 100 * CppAD::pow(vars[v_start + t] - ref_v, 2);
+        // fg[0] += 100 * CppAD::pow(vars[v_start + t] - ref_v, 2);
       }
+      // TODO: add jerk here,
       // Minimize the use of actuators.
       for (int t = 0; t < predicted_length_ - 1; t++)
       {
-        fg[0] += 100 * CppAD::pow(vars[delta_start + t], 2);
-        fg[0] += 50 * CppAD::pow(vars[a_start + t], 2);
+        // fg[0] += 100 * CppAD::pow(vars[delta_start + t], 2);
+        // fg[0] += 50 * CppAD::pow(vars[a_start + t], 2);
         // try adding penalty for speed + steer
         // fg[0] += 700*CppAD::pow(vars[delta_start + t] * vars[v_start+t], 2);
       }
@@ -134,7 +134,7 @@ namespace mpc_path_follower
     // This is the length from front to CoG that has a similar radius.
     double vehicle_Lf_;
     double dt_;         // frequency
-    double ref_v = 0.5; // references_velocity
+    double ref_v = 0;   // references_velocity
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
     // when one variable starts and another ends to make our lifes easier.
@@ -181,7 +181,7 @@ namespace mpc_path_follower
     // const double Lf_ = 2.67;
     double vehicle_Lf_;
     double dt_;         // frequency
-    double ref_v = 0.5; // references_velocity
+    double ref_v = 0;   // references_velocity
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
     // when one variable starts and another ends to make our life easier.

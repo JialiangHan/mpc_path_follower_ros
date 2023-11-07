@@ -3,7 +3,7 @@ max_speed: 0.5 # unit: m/s
 path_length: 3.0 # unit: m
 goal_radius: 0.2 # unit: m
 controller_freq: 10
-vehicle_Lf: 0.25 # distance between the front of the vehicle and its center of gravity
+vehicle_Lf: 0.325 # distance between the front of the vehicle and its center of gravity
 predicted_length: 20
 # Parameter for MPC solver
 mpc_ref_cte: 0.0

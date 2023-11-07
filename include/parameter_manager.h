@@ -71,7 +71,7 @@ namespace mpc_path_follower
       max_linear_acceleration = 4;
       min_linear_acceleration = -4;
 
-      vehicle_Lf = 0.23;
+      vehicle_Lf = 0.325;
       predicted_length = 20;
     }
 

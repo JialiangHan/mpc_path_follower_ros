@@ -42,7 +42,7 @@ namespace mpc_path_follower
     }
     std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     {
-        DLOG(INFO) << "in solve.";
+        // DLOG(INFO) << "in solve.";
         // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         x = state[0];
         y = state[1];
@@ -50,9 +50,8 @@ namespace mpc_path_follower
         v = state[3];
         cte = state[4];
         epsi = state[5];
-        // DLOG(INFO) << "in line 39.";
-        // number of independent variables
-        // N timesteps == N - 1 actuation
+        // Set the number of model variables (includes both states and inputs).For example: If the state is a 4 element vector, the actuators is a 2. element vector and there are 10 timesteps. The number of variables is: Set the number of constraints
+        // number of independent variables= number of state * predicted length + 2 control var
         n_vars = predicted_length_ * 6 + (predicted_length_ - 1) * 2;
         // DLOG(INFO) << "n_vars is " << n_vars << " predicted_length_ is " << predicted_length_;
         // Number of constraints
@@ -73,7 +72,7 @@ namespace mpc_path_follower
         {
             vars[i] = 0.0;
         }
-        DLOG(INFO) << "size of vars is " << vars.size();
+        // DLOG(INFO) << "size of vars is " << vars.size();
         // Set the initial variable values
         vars[x_start] = x;
         vars[y_start] = y;
@@ -95,7 +94,7 @@ namespace mpc_path_follower
             vars_upperbound[i] = 1.0e19;
         }
 
-        // The upper and lower limits of delta are set to -25 and 25
+        // The upper and lower limits of delta(steering angle) are set to -25 and 25
         // degrees (values in radians).
         // NOTE: Feel free to change this to something else.
         // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
@@ -107,7 +106,7 @@ namespace mpc_path_follower
 
         // Acceleration/deceleration upper and lower limits.
         // NOTE: Feel free to change this to something else.
-        DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
+        // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
         for (int i = a_start; i < n_vars; i++)
         {
             vars_lowerbound[i] = -1.0;
@@ -119,6 +118,7 @@ namespace mpc_path_follower
         // state indices.
         Dvector constraints_lowerbound(n_constraints);
         Dvector constraints_upperbound(n_constraints);
+        // initialize constraints
         for (int i = 0; i < n_constraints; i++)
         {
             constraints_lowerbound[i] = 0;
@@ -171,7 +171,7 @@ namespace mpc_path_follower
         ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
 
         auto cost = solution.obj_value;
-        DLOG(INFO) << "Cost is " << cost;
+        // DLOG(INFO) << "Cost is " << cost;
         // std::cout << "Cost " << cost << std::endl;
 
         result.push_back(solution.x[delta_start]);

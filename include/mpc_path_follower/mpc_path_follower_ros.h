@@ -88,7 +88,7 @@ namespace mpc_path_follower {
         // for visualization, publishers of global and local plan
         ros::Publisher g_plan_pub_, vel_pub_;
 
-        ros::Publisher _pub_ref_path_odom, _pub_mpc_traj, _pub_ref_path_baselink;
+        ros::Publisher _pub_ref_path_odom, _pub_mpc_traj_vehicle, _pub_ref_path_baselink, _pub_mpc_traj_vehicle;
 
         costmap_2d::Costmap2DROS* costmap_ros_;
 
