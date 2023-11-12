@@ -42,7 +42,7 @@ namespace mpc_path_follower {
             // load parameter:
             params_.loadRosParamFromNodeHandle(nh);
 
-            mpc_solver_.initialize(params_.predicted_length, params_.vehicle_Lf, params_.planning_frequency);
+            mpc_solver_.initialize(params_.predicted_length, params_.vehicle_Lf, params_.planning_frequency, params_.max_steering_angle, params_.min_linear_acceleration, params_.max_linear_acceleration);
 
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
             // _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
@@ -53,7 +53,7 @@ namespace mpc_path_follower {
 
             costmap_ros_ = costmap_ros;
             costmap_ros_->getRobotPose(current_pose_);
-            DT_ = 0.2;
+
             // make sure to update the costmap we'll use for this cycle
             costmap_2d::Costmap2D *costmap = costmap_ros_->getCostmap();
             planner_util_.initialize(tf, costmap, costmap_ros_->getGlobalFrameID());
@@ -133,9 +133,10 @@ namespace mpc_path_follower {
 
         geometry_msgs::PoseStamped robot_vel;
         odom_helper_.getRobotVel(robot_vel);
-        Eigen::Vector3f vel(robot_vel.pose.position.x,
-                            robot_vel.pose.position.y, 0);
-
+        Eigen::Vector3f velocity(robot_vel.pose.position.x,
+                                 robot_vel.pose.position.y, 0);
+        float current_speed = std::sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
+        DLOG(INFO) << "speed x value is " << velocity[0] << " speed y value is " << velocity[1];
         // Display the MPC reference trajectory in odom coordinate
         nav_msgs::Path _mpc_ref_traj;
         _mpc_ref_traj.header.frame_id = "odom";
@@ -158,39 +159,41 @@ namespace mpc_path_follower {
         double psi = tf::getYaw(current_pose_.pose.orientation);
         DLOG_IF(FATAL, std::isnan(psi)) << "psi is nan!!!!";
         // Waypoints related parameters
-        double cospsi = cos(psi);
-        double sinpsi = sin(psi);
+        // double cospsi = cos(psi);
+        // double sinpsi = sin(psi);
         // Convert to the vehicle coordinate system
-        std::vector<double> waypoints_x, waypoints_y;
+        // std::vector<double> waypoints_x, waypoints_y;
+        Eigen::VectorXd waypoints_x(path.size());
+        Eigen::VectorXd waypoints_y(path.size());
         // Display the MPC reference trajectory in odom coordinate
-        nav_msgs::Path _vehicle_ref_traj;
-        _vehicle_ref_traj.header.frame_id = "base_link"; // points in car coordinate
-        _vehicle_ref_traj.header.stamp = ros::Time::now();
-        tempPose.header = _vehicle_ref_traj.header;
+        // nav_msgs::Path _vehicle_ref_traj;
+        // _vehicle_ref_traj.header.frame_id = "base_link"; // points in car coordinate
+        // _vehicle_ref_traj.header.stamp = ros::Time::now();
+        // tempPose.header = _vehicle_ref_traj.header;
         for(int i = 0; i < path.size(); i++)
         {
             double dx = path.at(i).pose.position.x - px;
             double dy = path.at(i).pose.position.y - py;
-            waypoints_x.push_back( dx * cospsi + dy * sinpsi);
-            waypoints_y.push_back( dy * cospsi - dx * sinpsi);
-            tempPose.pose.position.x = dx * cospsi + dy * sinpsi;
-            tempPose.pose.position.y = dy * cospsi - dx * sinpsi;
-            _vehicle_ref_traj.poses.push_back(tempPose);
+            waypoints_x[i] = (dx * std::cos(-psi) - dy * std::sin(-psi));
+            waypoints_y[i] = (dy * std::cos(-psi) + dx * std::sin(-psi));
+            // tempPose.pose.position.x = dx * cospsi + dy * sinpsi;
+            // tempPose.pose.position.y = dy * cospsi - dx * sinpsi;
+            // _vehicle_ref_traj.poses.push_back(tempPose);
             // DLOG(INFO) << "local path at vehicle frame is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
         }
         // _pub_ref_path_baselink.publish(_vehicle_ref_traj);
         int size_of_path = waypoints_x.size();
-        if (size_of_path <= 6)
+        if (size_of_path <= 2)
         {
             _is_close_enough = true;
             return true;
         }
         // san ci duo xiang shi ni he.
-        double* ptrx = &waypoints_x[0];
-        double* ptry = &waypoints_y[0];
-        Eigen::Map<Eigen::VectorXd> waypoints_x_eig(ptrx, size_of_path);
-        Eigen::Map<Eigen::VectorXd> waypoints_y_eig(ptry, size_of_path);
-        auto coeffs = polyfit(waypoints_x_eig, waypoints_y_eig, 3);        
+        // double* ptrx = &waypoints_x[0];
+        // double* ptry = &waypoints_y[0];
+        // Eigen::Map<Eigen::VectorXd> waypoints_x_eig(ptrx, size_of_path);
+        // Eigen::Map<Eigen::VectorXd> waypoints_y_eig(ptry, size_of_path);
+        auto coeffs = polyfit(waypoints_x, waypoints_y, 3);
         /* The cross track error is calculated by evaluating at polynomial at x, f(x)
         and subtracting y.
         double cte = polyeval(coeffs, x) - y;
@@ -202,7 +205,8 @@ namespace mpc_path_follower {
         double cte = polyeval(coeffs, 0);
         // and epsi,  orientation error.
         // TODO change to orientation error
-        double epsi = atan(coeffs[1]);
+        // double epsi = atan(coeffs[1]);
+        double epsi = -atan(coeffs[1]);
         // DLOG(INFO) << "psi is " << psi << " path size is " << path.size() << " waypoints x size is " << waypoints_x.size() << " cte is" << cte << " epsi is " << epsi;
         // for (int i = 0; i < coeffs.size(); i++)
         // {
@@ -211,16 +215,16 @@ namespace mpc_path_follower {
 
         // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         Eigen::VectorXd state(6);
-        state << 0, 0, 0, vel[0], cte, epsi;
+        state << 0, 0, 0, current_speed, cte, epsi;
         std::vector<double> vars;
         vars = mpc_solver_.solve(state, coeffs);
-        DLOG(INFO) << "vars size is " << vars.size();
+        // DLOG(INFO) << "vars size is " << vars.size();
         if (vars.size() < 2)
         {
             return false;
         }
         std::vector<double> mpc_x_vals, mpc_y_vals;
-        // why divided 2?
+        // why divided 2?see solution structure
         for (int i = 2; i < vars.size(); i++)
         {
             if (i % 2 == 0)
@@ -237,15 +241,14 @@ namespace mpc_path_follower {
         _mpc_predi_traj.header.frame_id = "base_link"; // points in car coordinate
         _mpc_predi_traj.header.stamp = ros::Time::now();
         tempPose.header = _mpc_predi_traj.header;
-        // TODO why i start from 2???
-        DLOG(INFO) << "mpc_x_vals size is " << mpc_x_vals.size() << " mpc_y_vals size is " << mpc_y_vals.size();
+        // DLOG(INFO) << "mpc_x_vals size is " << mpc_x_vals.size() << " mpc_y_vals size is " << mpc_y_vals.size();
         for (int i = 2; i < mpc_x_vals.size() - 3; i++)
         {
             tempPose.pose.position.x = mpc_x_vals[i];
             tempPose.pose.position.y = mpc_y_vals[i];
             tempPose.pose.orientation.w = 1.0;
             _mpc_predi_traj.poses.push_back(tempPose);
-            // DLOG(INFO) << "_mpc_predi_traj base_link is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
+            DLOG(INFO) << "_mpc_predi_traj base_link is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
         }
         _pub_mpc_traj_vehicle.publish(_mpc_predi_traj);
 
@@ -270,20 +273,22 @@ namespace mpc_path_follower {
         throttle_value = vars[1];
         DLOG(INFO) << "Steer value is " << steer_value << " and throttle value is " << throttle_value;
         // ROS_INFO("Steer value and throttle value is, %lf , %lf", steer_value, throttle_value);
-        cmd_vel.linear.x = vel[0] + vars[1] * DT_;
-        double radius = 0.0;
+        cmd_vel.linear.x = velocity[0] + vars[1] * 1 / params_.planning_frequency * std::cos(psi);
+        cmd_vel.linear.y = velocity[1] + vars[1] * 1 / params_.planning_frequency * std::sin(psi);
+        double radius;
         if (fabs(tan(steer_value)) <= 1e-2)
         {
             radius = 1e5;
         }
         else
         {
+            // TODO why 0.5??
             radius = 0.5 / tan(steer_value);
         }
 
         cmd_vel.angular.z = std::max(-1.0, std::min(1.0, (cmd_vel.linear.x / radius)));
-        cmd_vel.linear.x = std::min(0.2, cmd_vel.linear.x);
-        DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " and z value is " << cmd_vel.angular.z;
+        // cmd_vel.linear.x = std::min(0.2, cmd_vel.linear.x);
+        DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " speed y value is " << cmd_vel.linear.y << " and z value is " << cmd_vel.angular.z;
         // ROS_INFO("v value and z value is, %lf , %lf", cmd_vel.linear.x, cmd_vel.angular.z);
         return true;
     }

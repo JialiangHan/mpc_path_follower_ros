@@ -43,24 +43,24 @@ namespace mpc_path_follower
       // any anything you think may be beneficial.
       for (int t = 0; t < predicted_length_; t++)
       {
-        fg[0] += 100 * CppAD::pow(vars[cte_start + t], 2);
-        fg[0] += 100 * CppAD::pow(vars[epsi_start + t], 2);
+        fg[0] += 10 * CppAD::pow(vars[cte_start + t], 2);
+        fg[0] += 1500 * CppAD::pow(vars[epsi_start + t], 2);
         // fg[0] += 100 * CppAD::pow(vars[v_start + t] - ref_v, 2);
       }
       // TODO: add jerk here,
       // Minimize the use of actuators.
       for (int t = 0; t < predicted_length_ - 1; t++)
       {
-        // fg[0] += 100 * CppAD::pow(vars[delta_start + t], 2);
-        // fg[0] += 50 * CppAD::pow(vars[a_start + t], 2);
+        fg[0] += 2000 * CppAD::pow(vars[delta_start + t], 2);
+        fg[0] += 50 * CppAD::pow(vars[a_start + t], 2);
         // try adding penalty for speed + steer
-        // fg[0] += 700*CppAD::pow(vars[delta_start + t] * vars[v_start+t], 2);
+        fg[0] += 700 * CppAD::pow(vars[delta_start + t] * vars[v_start + t], 2);
       }
       // Minimize the value gap between sequential actuations.
       for (int t = 0; t < predicted_length_ - 2; t++)
       {
-        fg[0] += 0 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-        fg[0] += 0 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+        fg[0] += 7000 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+        fg[0] += 50 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
       }
       // Setup Constraints
       // Initial constraints
@@ -102,7 +102,7 @@ namespace mpc_path_follower
           a0 = vars[a_start + t - 2];
           delta0 = vars[delta_start + t - 2];
         }
-
+        // TODO change this f0.
         AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * CppAD::pow(x0, 2) + coeffs[3] * CppAD::pow(x0, 3);
         AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0 + 3 * coeffs[3] * CppAD::pow(x0, 2));
 
@@ -120,12 +120,12 @@ namespace mpc_path_follower
         // TODO change model here.
         fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt_);
         fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt_);
-        fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / vehicle_Lf_ * dt_); // 这个地方可能是符号的问题
+        fg[1 + psi_start + t] = psi1 - (psi0 - v0 * delta0 / vehicle_Lf_ * dt_); // 这个地方可能是符号的问题
         fg[1 + v_start + t] = v1 - (v0 + a0 * dt_);
         fg[1 + cte_start + t] =
             cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt_));
         fg[1 + epsi_start + t] =
-            epsi1 - ((psi0 - psides0) - v0 * delta0 / vehicle_Lf_ * dt_);
+            epsi1 - ((psi0 - psides0) + v0 * delta0 / vehicle_Lf_ * dt_);
       }
     }
 
@@ -156,7 +156,7 @@ namespace mpc_path_follower
     typedef CPPAD_TESTVECTOR(double) Dvector;
     MPC_Path_Follower() = default;
 
-    void initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency);
+    void initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, const float &max_steering_angle, const float &min_linear_acceleration, const float &max_linear_acceleration);
 
     std::vector<double> solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
 
@@ -175,7 +175,7 @@ namespace mpc_path_follower
     size_t n_constraints;
     std::string options;
     bool ok;
-    std::vector<double> result;
+
     size_t predicted_length_; // timesteps
     // This is the length from front to CoG that has a similar radius.
     // const double Lf_ = 2.67;
@@ -193,5 +193,9 @@ namespace mpc_path_follower
     size_t epsi_start;
     size_t delta_start;
     size_t a_start;
+
+    float max_steering_angle_;
+    float max_linear_acceleration_;
+    float min_linear_acceleration_;
   };
 };

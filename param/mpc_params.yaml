@@ -1,22 +1,16 @@
-# Parameters for control loop
-max_speed: 0.5 # unit: m/s 
-path_length: 3.0 # unit: m
-goal_radius: 0.2 # unit: m
-controller_freq: 10
+
+planning_frequency: 0.5 # unit: Hz
+max_linear_velocity: 0.5 # unit: m/s 
+min_linear_velocity: 0.2
+max_steering_angle: 0.523 # Maximal steering radian (~30 deg)
+
+max_angular_acceleration: 10
+min_angular_acceleration: 10
+
+max_linear_acceleration: 5
+min_linear_acceleration: 0
 vehicle_Lf: 0.325 # distance between the front of the vehicle and its center of gravity
-predicted_length: 20
-# Parameter for MPC solver
-mpc_ref_cte: 0.0
-mpc_ref_epsi: 0.0
-mpc_ref_vel: 0.5
-mpc_w_cte: 100.0
-mpc_w_epsi: 100.0
-mpc_w_vel: 100.0
-mpc_w_delta: 100.0
-mpc_w_accel: 50.0
-mpc_w_delta_d: 0.0
-mpc_w_accel_d: 0.0
-mpc_max_steering: 0.523 # Maximal steering radian (~30 deg)
-mpc_max_throttle: 1.0 # Maximal throttle accel
-mpc_bound_value: 1.0e3 # Bound value for other variables
+predicted_length: 30
+
+evaluate_path: false
 

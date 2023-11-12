@@ -27,7 +27,7 @@ namespace mpc_path_follower
         // DLOG(INFO) << "out of FG_eval.";
     }
 
-    void MPC_Path_Follower::initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency)
+    void MPC_Path_Follower::initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, const float &max_steering_angle, const float &min_linear_acceleration, const float &max_linear_acceleration)
     {
         predicted_length_ = predicted_length;
         vehicle_Lf_ = vehicle_Lf;
@@ -39,9 +39,14 @@ namespace mpc_path_follower
         epsi_start = cte_start + predicted_length_;
         delta_start = epsi_start + predicted_length_;
         a_start = delta_start + predicted_length_ - 1;
+        max_steering_angle_ = max_steering_angle;
+        min_linear_acceleration_ = min_linear_acceleration;
+        max_linear_acceleration_ = max_linear_acceleration;
     }
+
     std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     {
+        std::vector<double> result;
         // DLOG(INFO) << "in solve.";
         // state: x,y,vehicle orientation angle, velocity,cross-track error. orientation error.
         x = state[0];
@@ -52,10 +57,10 @@ namespace mpc_path_follower
         epsi = state[5];
         // Set the number of model variables (includes both states and inputs).For example: If the state is a 4 element vector, the actuators is a 2. element vector and there are 10 timesteps. The number of variables is: Set the number of constraints
         // number of independent variables= number of state * predicted length + 2 control var
-        n_vars = predicted_length_ * 6 + (predicted_length_ - 1) * 2;
+        n_vars = predicted_length_ * state.size() + (predicted_length_ - 1) * 2;
         // DLOG(INFO) << "n_vars is " << n_vars << " predicted_length_ is " << predicted_length_;
         // Number of constraints
-        n_constraints = predicted_length_ * 6;
+        n_constraints = predicted_length_ * state.size();
         // Initial value of the independent variables.
         // Should be 0 except for the initial values.
         // x_start to y_start-1 is x position
@@ -84,7 +89,6 @@ namespace mpc_path_follower
         // Lower and upper limits for x
         Dvector vars_lowerbound(n_vars);
         Dvector vars_upperbound(n_vars);
-        // TODO constraints are needed to be revised
         //  Set all non-actuators upper and lower limits
         //  to the max negative and positive values.
         // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
@@ -100,8 +104,8 @@ namespace mpc_path_follower
         // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
         for (int i = delta_start; i < a_start; i++)
         {
-            vars_lowerbound[i] = -0.436332;
-            vars_upperbound[i] = 0.436332;
+            vars_lowerbound[i] = -1 * max_steering_angle_;
+            vars_upperbound[i] = max_steering_angle_;
         }
 
         // Acceleration/deceleration upper and lower limits.
@@ -109,8 +113,8 @@ namespace mpc_path_follower
         // DLOG(INFO) << "n_constraints is " << n_constraints << " x_start is " << x_start << " y_start is " << y_start << " psi_start is " << psi_start << " v_start is " << v_start << " cte_start is " << cte_start << " epsi_start is " << epsi_start << " delta_start is " << delta_start << " a_start is " << a_start;
         for (int i = a_start; i < n_vars; i++)
         {
-            vars_lowerbound[i] = -1.0;
-            vars_upperbound[i] = 1.0;
+            vars_lowerbound[i] = min_linear_acceleration_;
+            vars_upperbound[i] = max_linear_acceleration_;
         }
         // DLOG(INFO) << "in line 99";
         // Lower and upper limits for constraints
@@ -166,12 +170,12 @@ namespace mpc_path_follower
             options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound,
             constraints_upperbound, fg_eval, solution);
         // DLOG(INFO) << "after solve";
-        ok = true;
+
         // Check some of the solution values
         ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
 
         auto cost = solution.obj_value;
-        // DLOG(INFO) << "Cost is " << cost;
+        DLOG(INFO) << "Cost is " << cost;
         // std::cout << "Cost " << cost << std::endl;
 
         result.push_back(solution.x[delta_start]);
