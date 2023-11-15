@@ -16,7 +16,8 @@ namespace mpc_path_follower
         this->coeffs = coeffs;
         predicted_length_ = predicted_length;
         vehicle_Lf_ = vehicle_Lf;
-        dt_ = 1 / planning_frequency;
+        // dt_ = 1 / planning_frequency;
+        dt_ = 0.1;
         y_start = x_start + predicted_length_;
         psi_start = y_start + predicted_length_;
         v_start = psi_start + predicted_length_;

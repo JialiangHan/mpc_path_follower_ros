@@ -1,16 +1,16 @@
+MpcPathFollowerRos:
+  planning_frequency: 0.1 # unit: Hz
+  max_linear_velocity: 0.5 # unit: m/s 
+  min_linear_velocity: 0.2
+  max_steering_angle: 0.523 # Maximal steering radian (~30 deg)
 
-planning_frequency: 0.5 # unit: Hz
-max_linear_velocity: 0.5 # unit: m/s 
-min_linear_velocity: 0.2
-max_steering_angle: 0.523 # Maximal steering radian (~30 deg)
+  max_angular_acceleration: 10
+  min_angular_acceleration: 10
 
-max_angular_acceleration: 10
-min_angular_acceleration: 10
+  max_linear_acceleration: 5
+  min_linear_acceleration: 0
+  vehicle_Lf: 0.325 # distance between the front of the vehicle and its center of gravity
+  predicted_length: 30
 
-max_linear_acceleration: 5
-min_linear_acceleration: 0
-vehicle_Lf: 0.325 # distance between the front of the vehicle and its center of gravity
-predicted_length: 30
-
-evaluate_path: false
+  evaluate_path: false
 

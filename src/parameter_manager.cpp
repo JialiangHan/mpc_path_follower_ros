@@ -28,4 +28,4 @@ namespace mpc_path_follower
     nh.getParam("evaluate_path", evaluate_path);
   }
 
-} // namespace adaptive_open_local_planner
+} // namespace mpc_path_follower

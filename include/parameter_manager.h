@@ -61,4 +61,4 @@ namespace mpc_path_follower
     void loadRosParamFromNodeHandle(const ros::NodeHandle &nh);
   };
 
-} // namespace adaptive_open_local_planner
+} // namespace mpc_path_follower

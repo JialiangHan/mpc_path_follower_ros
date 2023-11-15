@@ -15,6 +15,9 @@ find_package(catkin REQUIRED COMPONENTS
 )
 FIND_PACKAGE(Glog REQUIRED)
 FIND_PACKAGE(Gflags)
+find_package(Python3 COMPONENTS Interpreter Development NumPy)
+find_package(PythonLibs 3.0 REQUIRED)
+include_directories(${Python3_INCLUDE_DIRS} ${NumPy_INCLUDE_DIRS})
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
@@ -42,6 +45,17 @@ target_link_libraries(${PROJECT_NAME}
     ${catkin_LIBRARIES}
   )
 target_link_libraries(${PROJECT_NAME} ipopt  glog::glog )
+
+add_executable(node_path_evaluator 
+            src/node_path_evaluator.cpp 
+            src/path_evaluator.cpp
+            )
+target_link_libraries(node_path_evaluator 
+                        ${PYTHON_LIBRARIES}
+                        ${catkin_LIBRARIES} 
+                        glog::glog 
+                        ${GFLAGS_LIBRARY} 
+)
 
 #add_dependencies(mpc_path_follower ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

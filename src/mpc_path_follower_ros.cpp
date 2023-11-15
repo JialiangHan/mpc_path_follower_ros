@@ -35,13 +35,14 @@ namespace mpc_path_follower {
     {
         if (!initialized_)
         {
-
-            ros::NodeHandle private_nh("~/" + name);
-            ros::NodeHandle nh;
+            // DLOG(INFO) << "name is " << name;
+            // ros::NodeHandle private_nh("/" + name);
+            ros::NodeHandle nh("~/" + name);
 
             // load parameter:
             params_.loadRosParamFromNodeHandle(nh);
 
+            // DLOG(INFO) << "planning frequency is " << params_.planning_frequency;
             mpc_solver_.initialize(params_.predicted_length, params_.vehicle_Lf, params_.planning_frequency, params_.max_steering_angle, params_.min_linear_acceleration, params_.max_linear_acceleration);
 
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
@@ -57,7 +58,7 @@ namespace mpc_path_follower {
             // make sure to update the costmap we'll use for this cycle
             costmap_2d::Costmap2D *costmap = costmap_ros_->getCostmap();
             planner_util_.initialize(tf, costmap, costmap_ros_->getGlobalFrameID());
-            if( private_nh.getParam( "odom_topic", odom_topic_ ))
+            if (nh.getParam("odom_topic", odom_topic_))
             {
                 odom_helper_.setOdomTopic( odom_topic_ );
                 // DLOG(INFO) << "odom topic set.";
@@ -248,7 +249,7 @@ namespace mpc_path_follower {
             tempPose.pose.position.y = mpc_y_vals[i];
             tempPose.pose.orientation.w = 1.0;
             _mpc_predi_traj.poses.push_back(tempPose);
-            DLOG(INFO) << "_mpc_predi_traj base_link is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
+            // DLOG(INFO) << "_mpc_predi_traj base_link is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
         }
         _pub_mpc_traj_vehicle.publish(_mpc_predi_traj);
 
@@ -266,15 +267,14 @@ namespace mpc_path_follower {
             _mpc_predi_traj_map.poses.push_back(tempPose);
             // DLOG(INFO) << "_mpc_predi_traj_map is " << tempPose.pose.position.x << " " << tempPose.pose.position.y;
         }
-        _pub_mpc_traj_vehicle.publish(_mpc_predi_traj_map);
+        _pub_mpc_traj_map.publish(_mpc_predi_traj_map);
 
-        double steer_value, throttle_value;
-        steer_value = vars[0];
-        throttle_value = vars[1];
+        double steer_value = vars[0], throttle_value = vars[1];
         DLOG(INFO) << "Steer value is " << steer_value << " and throttle value is " << throttle_value;
         // ROS_INFO("Steer value and throttle value is, %lf , %lf", steer_value, throttle_value);
-        cmd_vel.linear.x = velocity[0] + vars[1] * 1 / params_.planning_frequency * std::cos(psi);
-        cmd_vel.linear.y = velocity[1] + vars[1] * 1 / params_.planning_frequency * std::sin(psi);
+        cmd_vel.linear.x = velocity[0] + throttle_value * (1 / params_.planning_frequency) * std::cos(psi);
+        cmd_vel.linear.y = velocity[1] + throttle_value * (1 / params_.planning_frequency) * std::sin(psi);
+        // DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " current velocity speed x is " << velocity[0] << " throttle value is " << throttle_value << " planning freq is " << params_.planning_frequency << " current vehicle orientation is " << psi * 180 / 3.14 << "  std::cos(psi) is " << std::cos(psi) << " throttle_value * (1 / params_.planning_frequency) is " << throttle_value * (1 / params_.planning_frequency) << " throttle_value * (1 / params_.planning_frequency) * std::cos(psi) is " << throttle_value * (1 / params_.planning_frequency) * std::cos(psi);
         double radius;
         if (fabs(tan(steer_value)) <= 1e-2)
         {
@@ -288,8 +288,9 @@ namespace mpc_path_follower {
 
         cmd_vel.angular.z = std::max(-1.0, std::min(1.0, (cmd_vel.linear.x / radius)));
         // cmd_vel.linear.x = std::min(0.2, cmd_vel.linear.x);
-        DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " speed y value is " << cmd_vel.linear.y << " and z value is " << cmd_vel.angular.z;
+        // DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " speed y value is " << cmd_vel.linear.y << " and z value is " << cmd_vel.angular.z;
         // ROS_INFO("v value and z value is, %lf , %lf", cmd_vel.linear.x, cmd_vel.angular.z);
+
         return true;
     }
 
