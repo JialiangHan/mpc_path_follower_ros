@@ -21,6 +21,7 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
 #include "parameter_manager.h"
+#include "std_msgs/Float32.h"
 
 namespace mpc_path_follower {
     class MpcPathFollowerRos : public nav_core::BaseLocalPlanner{
@@ -85,10 +86,16 @@ namespace mpc_path_follower {
 
         void publishGlobalPlan(std::vector<geometry_msgs::PoseStamped>& path);
 
-        // for visualization, publishers of global and local plan
-        ros::Publisher g_plan_pub_, vel_pub_;
+        bool publishCte(const std::vector<geometry_msgs::PoseStamped> &path);
 
-        ros::Publisher _pub_ref_path_odom, _pub_mpc_traj_vehicle, _pub_ref_path_baselink, _pub_mpc_traj_map;
+        float FindClosestDistance(const std::vector<geometry_msgs::PoseStamped> &path, const geometry_msgs::PoseStamped &current_location);
+
+        float FindDistance(const geometry_msgs::PoseStamped &current_location, const geometry_msgs::PoseStamped &next_location);
+
+        // for visualization, publishers of global and local plan
+        ros::Publisher g_plan_pub_, vel_pub_, cost_pub_;
+
+        ros::Publisher _pub_ref_path_odom, _pub_mpc_traj_vehicle, _pub_ref_path_baselink, _pub_mpc_traj_map, pub_cte_;
 
         costmap_2d::Costmap2DROS* costmap_ros_;
 

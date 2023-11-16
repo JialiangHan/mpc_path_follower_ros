@@ -25,15 +25,20 @@ namespace mpc_path_follower
         cost_vec_.emplace_back(cost->data);
     }
 
+    void PathEvaluator::CalculateCte(const std_msgs::Float32::ConstPtr &cte, const std::string &topic_name)
+    {
+        cte_vec_.emplace_back(cte->data);
+    }
+
     void PathEvaluator::Plot()
     {
         matplotlibcpp::ion();
         matplotlibcpp::clf();
-        std::vector<std::string> title_vec = {"steering angle", "linear velocity", "cost"};
+        std::vector<std::string> title_vec = {"steering angle", "linear velocity", "cost", "cte"};
         std::vector<float> vec;
         for (size_t i = 0; i < title_vec.size(); i++)
         {
-            matplotlibcpp::subplot(2, 3, i + 1);
+            matplotlibcpp::subplot(2, 2, i + 1);
 
             if (title_vec[i] == "steering angle")
             {
@@ -43,10 +48,10 @@ namespace mpc_path_follower
             {
                 vec = linear_velocity_vec_;
             }
-            // if (title_vec[i] == "jerk")
-            // {
-            //     vec = jerk_vec_;
-            // }
+            if (title_vec[i] == "cte")
+            {
+                vec = cte_vec_;
+            }
             if (title_vec[i] == "cost")
             {
                 vec = cost_vec_;

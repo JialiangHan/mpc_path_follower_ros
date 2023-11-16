@@ -27,11 +27,11 @@ namespace mpc_path_follower
     {
     public:
         PathEvaluator(){};
-        PathEvaluator(const std::string &cmd_topic, const std::string &cost_topic)
+        PathEvaluator(const std::string &cmd_topic, const std::string &cost_topic, const std::string &cte_topic)
         {
             // sub_path_ = nh_.subscribe<nav_msgs::Path>(path_topic, 1, boost::bind(&PathEvaluator::CallbackPath, this, _1, path_topic));
             sub_cmd_ = nh_.subscribe<geometry_msgs::Twist>(cmd_topic, 1, boost::bind(&PathEvaluator::CallbackCmd, this, _1, cmd_topic));
-            // sub_jerk_ = nh_.subscribe<std_msgs::Float32>(jerk_topic, 1, boost::bind(&PathEvaluator::CallbackJerk, this, _1, jerk_topic));
+            sub_cte_ = nh_.subscribe<std_msgs::Float32>(cte_topic, 1, boost::bind(&PathEvaluator::CalculateCte, this, _1, cte_topic));
             sub_cost_ = nh_.subscribe<std_msgs::Float32>(cost_topic, 1, boost::bind(&PathEvaluator::CalculateCost, this, _1, cost_topic));
         };
 
@@ -42,6 +42,8 @@ namespace mpc_path_follower
         // void CallbackJerk(const std_msgs::Float32::ConstPtr &jerk, const std::string &topic_name);
 
         void CalculateCost(const std_msgs::Float32::ConstPtr &cost, const std::string &topic_name);
+
+        void CalculateCte(const std_msgs::Float32::ConstPtr &cte, const std::string &topic_name);
 
         void EvaluatePath();
         /**
@@ -63,13 +65,13 @@ namespace mpc_path_follower
 
         ros::Subscriber sub_cmd_;
 
-        // ros::Subscriber sub_jerk_;
+        ros::Subscriber sub_cte_;
 
         ros::Subscriber sub_cost_;
 
         // std::vector<Eigen::Vector3f> path_;
 
-        // std::vector<float> curvature_vec_;
+        std::vector<float> cte_vec_;
 
         // std::vector<float> smoothness_vec_;
 
@@ -77,10 +79,6 @@ namespace mpc_path_follower
 
         std::vector<float> linear_velocity_vec_;
 
-        std::vector<float> jerk_vec_;
-
         std::vector<float> cost_vec_;
-
-        std::string path_topic_;
     };
 }

@@ -52,6 +52,10 @@ namespace mpc_path_follower {
 
             _pub_mpc_traj_map = nh.advertise<nav_msgs::Path>("/_pub_mpc_traj_map", 1); // MPC trajectory output
 
+            pub_cte_ = nh.advertise<std_msgs::Float32>("cte", 1);
+
+            cost_pub_ = nh.advertise<std_msgs::Float32>("/cost", 1);
+
             costmap_ros_ = costmap_ros;
             costmap_ros_->getRobotPose(current_pose_);
 
@@ -110,6 +114,7 @@ namespace mpc_path_follower {
         {
             // publish an empty plan because we've reached our goal position
             publishZeroVelocity();
+            DLOG(INFO) << "publish zero velocity!!!";
             return true;
         }
         else
@@ -219,6 +224,11 @@ namespace mpc_path_follower {
         state << 0, 0, 0, current_speed, cte, epsi;
         std::vector<double> vars;
         vars = mpc_solver_.solve(state, coeffs);
+        auto cost = vars.back();
+        std_msgs::Float32 cost_msg;
+        cost_msg.data = cost;
+        // DLOG(INFO) << "cost is " << cost_msg.data;
+        cost_pub_.publish(cost_msg);
         // DLOG(INFO) << "vars size is " << vars.size();
         if (vars.size() < 2)
         {
@@ -228,6 +238,12 @@ namespace mpc_path_follower {
         // why divided 2?see solution structure
         for (int i = 2; i < vars.size(); i++)
         {
+            // skip cost
+            if (i == (vars.size() - 1))
+            {
+                continue;
+            }
+
             if (i % 2 == 0)
             {
                 mpc_x_vals.push_back(vars[i]);
@@ -374,5 +390,35 @@ namespace mpc_path_follower {
     void MpcPathFollowerRos::publishGlobalPlan(std::vector<geometry_msgs::PoseStamped> &path)
     {
         base_local_planner::publishPlan(path, g_plan_pub_);
+    }
+
+    bool MpcPathFollowerRos::publishCte(const std::vector<geometry_msgs::PoseStamped> &path)
+    {
+        if (path.size() <= 0)
+        {
+            DLOG(INFO) << "path size is zero!!!";
+            return false;
+        }
+        float cte = FindClosestDistance(path, current_pose_);
+        std_msgs::Float32 cte_msg;
+        cte_msg.data = cte;
+        // DLOG(INFO) << "cost is " << cost_msg.data;
+        pub_cte_.publish(cte_msg);
+        return true;
+    }
+
+    float MpcPathFollowerRos::FindClosestDistance(const std::vector<geometry_msgs::PoseStamped> &path, const geometry_msgs::PoseStamped &current_location)
+    {
+        float min_distance = 1000000;
+        float distance;
+        for (size_t i = 0; i < path.size(); i++)
+        {
+            distance = FindDistance(path[i], current_location);
+            if (distance < min_distance)
+            {
+                min_distance = distance;
+            }
+        }
+        return min_distance;
     }
 };

@@ -44,15 +44,15 @@ namespace mpc_path_follower
       for (int t = 0; t < predicted_length_; t++)
       {
         fg[0] += 10 * CppAD::pow(vars[cte_start + t], 2);
-        fg[0] += 15 * CppAD::pow(vars[epsi_start + t], 2);
+        fg[0] += 0 * CppAD::pow(vars[epsi_start + t], 2);
         // fg[0] += 100 * CppAD::pow(vars[v_start + t] - ref_v, 2);
       }
       // TODO: add jerk here,
       // Minimize the use of actuators.
       for (int t = 0; t < (predicted_length_ - 1); t++)
       {
-        fg[0] += 5 * CppAD::pow(vars[delta_start + t], 2);
-        fg[0] += 100 * CppAD::pow(vars[a_start + t], 2);
+        fg[0] += 0 * CppAD::pow(vars[delta_start + t], 2);
+        fg[0] += 0 * CppAD::pow(vars[a_start + t], 2);
         // try adding penalty for speed + steer
         // fg[0] += 700 * CppAD::pow(vars[delta_start + t] * vars[v_start + t], 2);
       }

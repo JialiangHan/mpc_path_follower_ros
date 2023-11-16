@@ -176,7 +176,7 @@ namespace mpc_path_follower
         ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
 
         auto cost = solution.obj_value;
-        DLOG(INFO) << "Cost is " << cost;
+        // DLOG(INFO) << "Cost is " << cost;
         // std::cout << "Cost " << cost << std::endl;
 
         result.push_back(solution.x[delta_start]);
@@ -188,6 +188,7 @@ namespace mpc_path_follower
             result.push_back(solution.x[y_start + i + 1]);
         }
 
+        result.push_back(cost);
         return result;
     }
 

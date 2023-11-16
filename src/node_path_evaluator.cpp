@@ -26,7 +26,8 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "path_evaluator");
     std::string cmd_topic = "cmd_vel";
     std::string cost_topic = "cost";
-    mpc_path_follower::PathEvaluator path_evaluator(cmd_topic, cost_topic);
+    std::string cte_topic = "cte";
+    mpc_path_follower::PathEvaluator path_evaluator(cmd_topic, cost_topic, cte_topic);
 
     while (ros::ok())
     {
