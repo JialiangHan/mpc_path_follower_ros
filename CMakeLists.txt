@@ -17,13 +17,16 @@ FIND_PACKAGE(Glog REQUIRED)
 FIND_PACKAGE(Gflags)
 find_package(Python3 COMPONENTS Interpreter Development NumPy)
 find_package(PythonLibs 3.0 REQUIRED)
+
+find_package(OsqpEigen REQUIRED)
+find_package(Eigen3)
 include_directories(${Python3_INCLUDE_DIRS} ${NumPy_INCLUDE_DIRS})
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
 )
-
-link_directories(${catkin_LIBRARY_DIRS})
+include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
+link_directories(${catkin_LIBRARY_DIRS} )
 include_directories(/usr/include)
 link_directories(/usr/lib)
 
@@ -39,12 +42,13 @@ add_library(mpc_path_follower
  src/mpc_path_follower_ros.cpp
  src/mpc_path_follower.cpp
  src/parameter_manager.cpp
+ src/mpc.cpp
  )
 
 target_link_libraries(${PROJECT_NAME}
     ${catkin_LIBRARIES}
   )
-target_link_libraries(${PROJECT_NAME} ipopt  glog::glog )
+target_link_libraries(${PROJECT_NAME} ipopt  glog::glog OsqpEigen::OsqpEigen )
 
 add_executable(node_path_evaluator 
             src/node_path_evaluator.cpp 

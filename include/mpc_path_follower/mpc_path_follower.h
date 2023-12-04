@@ -29,8 +29,18 @@ namespace mpc_path_follower
   public:
     typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
     Eigen::VectorXd coeffs;
+    double cte_weight_;
+    double epsi_weight_;
+    double v_weight_;
+    double delta_weight_;
+    double a_weight_;
+    double delta_gap_weight_;
+    double a_gap_weight_;
+    double ref_velocity_;
     // Coefficients of the fitted polynomial.
-    FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency);
+    FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, double cte_weight, double epsi_weight, double v_weight,
+            double delta_weight, double a_weight, double delta_gap_weight, double a_gap_weight,
+            double ref_velocity);
 
     void operator()(ADvector &fg, const ADvector &vars)
     {
@@ -43,24 +53,24 @@ namespace mpc_path_follower
       // any anything you think may be beneficial.
       for (int t = 0; t < predicted_length_; t++)
       {
-        fg[0] += 10 * CppAD::pow(vars[cte_start + t], 2);
-        fg[0] += 0 * CppAD::pow(vars[epsi_start + t], 2);
-        // fg[0] += 100 * CppAD::pow(vars[v_start + t] - ref_v, 2);
+        fg[0] += cte_weight_ * CppAD::pow(vars[cte_start + t], 2);
+        fg[0] += epsi_weight_ * CppAD::pow(vars[epsi_start + t], 2);
+        //  fg[0] += v_weight_ * CppAD::pow(vars[v_start + t] - this->ref_velocity_, 2);
       }
       // TODO: add jerk here,
       // Minimize the use of actuators.
       for (int t = 0; t < (predicted_length_ - 1); t++)
       {
-        fg[0] += 0 * CppAD::pow(vars[delta_start + t], 2);
-        fg[0] += 0 * CppAD::pow(vars[a_start + t], 2);
+        fg[0] += delta_weight_ * CppAD::pow(vars[delta_start + t], 2);
+        fg[0] += a_weight_ * CppAD::pow(vars[a_start + t], 2);
         // try adding penalty for speed + steer
         // fg[0] += 700 * CppAD::pow(vars[delta_start + t] * vars[v_start + t], 2);
       }
       // Minimize the value gap between sequential actuations.
       for (int t = 0; t < predicted_length_ - 2; t++)
       {
-        fg[0] += 0 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-        fg[0] += 0 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+        fg[0] += delta_gap_weight_ * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+        fg[0] += a_gap_weight_ * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
       }
       // Setup Constraints
       // Initial constraints
@@ -120,7 +130,7 @@ namespace mpc_path_follower
         // TODO change model here.
         fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt_);
         fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt_);
-        fg[1 + psi_start + t] = psi1 - (psi0 - v0 * delta0 / vehicle_Lf_ * dt_); // 这个地方可能是符号的问题
+        fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / vehicle_Lf_ * dt_); // 这个地方可能是符号的问题
         fg[1 + v_start + t] = v1 - (v0 + a0 * dt_);
         fg[1 + cte_start + t] =
             cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt_));
@@ -134,7 +144,7 @@ namespace mpc_path_follower
     // This is the length from front to CoG that has a similar radius.
     double vehicle_Lf_;
     double dt_;         // frequency
-    double ref_v = 0;   // references_velocity
+
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
     // when one variable starts and another ends to make our lifes easier.
@@ -156,11 +166,21 @@ namespace mpc_path_follower
     typedef CPPAD_TESTVECTOR(double) Dvector;
     MPC_Path_Follower() = default;
 
-    void initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, const float &max_steering_angle, const float &min_linear_acceleration, const float &max_linear_acceleration);
+    void initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, const float &max_steering_angle, const float &min_linear_acceleration, const float &max_linear_acceleration, double cte_weight, double epsi_weight, double v_weight, double delta_weight,
+                    double a_weight, double delta_gap_weight, double a_gap_weight, double ref_velocity);
 
     std::vector<double> solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
 
     ~MPC_Path_Follower() = default;
+
+    double cte_weight_;
+    double epsi_weight_;
+    double v_weight_;
+    double delta_weight_;
+    double a_weight_;
+    double delta_gap_weight_;
+    double a_gap_weight_;
+    double ref_velocity_;
 
   private:
     size_t i;
@@ -180,8 +200,7 @@ namespace mpc_path_follower
     // This is the length from front to CoG that has a similar radius.
     // const double Lf_ = 2.67;
     double vehicle_Lf_;
-    double dt_;         // frequency
-    double ref_v = 0;   // references_velocity
+    double dt_; // frequency
     // The solver takes all the state variables and actuator
     // variables in a singular vector. Thus, we should to establish
     // when one variable starts and another ends to make our life easier.

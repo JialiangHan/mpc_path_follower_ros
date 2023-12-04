@@ -26,6 +26,15 @@ namespace mpc_path_follower
     nh.getParam("predicted_length", predicted_length);
 
     nh.getParam("evaluate_path", evaluate_path);
+
+    nh.getParam("cte_weight", cte_weight);
+    nh.getParam("epsi_weight", epsi_weight);
+    nh.getParam("v_weight", v_weight);
+    nh.getParam("delta_weight", delta_weight);
+    nh.getParam("a_weight", a_weight);
+    nh.getParam("delta_gap_weight", delta_gap_weight);
+    nh.getParam("a_gap_weight", a_gap_weight);
+    nh.getParam("ref_velocity", ref_velocity);
   }
 
 } // namespace mpc_path_follower

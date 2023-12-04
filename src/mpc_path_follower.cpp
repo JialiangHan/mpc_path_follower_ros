@@ -11,7 +11,9 @@
 namespace mpc_path_follower
 {
 
-    FG_eval::FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency)
+    FG_eval::FG_eval(Eigen::VectorXd coeffs, const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, double cte_weight, double epsi_weight, double v_weight,
+                     double delta_weight, double a_weight, double delta_gap_weight, double a_gap_weight,
+                     double ref_velocity)
     {
         this->coeffs = coeffs;
         predicted_length_ = predicted_length;
@@ -25,14 +27,25 @@ namespace mpc_path_follower
         epsi_start = cte_start + predicted_length_;
         delta_start = epsi_start + predicted_length_;
         a_start = delta_start + predicted_length_ - 1;
+
+        this->cte_weight_ = cte_weight;
+        this->epsi_weight_ = epsi_weight;
+        this->v_weight_ = v_weight;
+        this->delta_weight_ = delta_weight;
+        this->a_weight_ = a_weight;
+        this->delta_gap_weight_ = delta_gap_weight;
+        this->a_gap_weight_ = a_gap_weight;
+        this->ref_velocity_ = ref_velocity;
         // DLOG(INFO) << "out of FG_eval.";
     }
 
-    void MPC_Path_Follower::initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, const float &max_steering_angle, const float &min_linear_acceleration, const float &max_linear_acceleration)
+    void MPC_Path_Follower::initialize(const int &predicted_length, const double &vehicle_Lf, const double &planning_frequency, const float &max_steering_angle, const float &min_linear_acceleration, const float &max_linear_acceleration, double cte_weight, double epsi_weight, double v_weight, double delta_weight,
+                                       double a_weight, double delta_gap_weight, double a_gap_weight, double ref_velocity)
     {
         predicted_length_ = predicted_length;
         vehicle_Lf_ = vehicle_Lf;
-        dt_ = 1 / planning_frequency;
+        // dt_ = 1 / planning_frequency;
+        dt_ = 0.1;
         y_start = x_start + predicted_length_;
         psi_start = y_start + predicted_length_;
         v_start = psi_start + predicted_length_;
@@ -40,9 +53,19 @@ namespace mpc_path_follower
         epsi_start = cte_start + predicted_length_;
         delta_start = epsi_start + predicted_length_;
         a_start = delta_start + predicted_length_ - 1;
+
         max_steering_angle_ = max_steering_angle;
         min_linear_acceleration_ = min_linear_acceleration;
         max_linear_acceleration_ = max_linear_acceleration;
+
+        this->cte_weight_ = cte_weight;
+        this->epsi_weight_ = epsi_weight;
+        this->v_weight_ = v_weight;
+        this->delta_weight_ = delta_weight;
+        this->a_weight_ = a_weight;
+        this->delta_gap_weight_ = delta_gap_weight;
+        this->a_gap_weight_ = a_gap_weight;
+        this->ref_velocity_ = ref_velocity;
     }
 
     std::vector<double> MPC_Path_Follower::solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
@@ -146,7 +169,14 @@ namespace mpc_path_follower
 
         // DLOG(INFO) << "122th row.";
         // Object that computes objective and constraints
-        FG_eval fg_eval(coeffs, predicted_length_, vehicle_Lf_, dt_);
+        FG_eval fg_eval(coeffs, predicted_length_, vehicle_Lf_, dt_, this->cte_weight_,
+                        this->epsi_weight_,
+                        this->v_weight_,
+                        this->delta_weight_,
+                        this->a_weight_,
+                        this->delta_gap_weight_,
+                        this->a_gap_weight_,
+                        this->ref_velocity_);
         // options
         std::string options;
         options += "Integer print_level  0\n";

@@ -43,7 +43,7 @@ namespace mpc_path_follower {
             params_.loadRosParamFromNodeHandle(nh);
 
             // DLOG(INFO) << "planning frequency is " << params_.planning_frequency;
-            mpc_solver_.initialize(params_.predicted_length, params_.vehicle_Lf, params_.planning_frequency, params_.max_steering_angle, params_.min_linear_acceleration, params_.max_linear_acceleration);
+            mpc_solver_.initialize(params_.predicted_length, params_.vehicle_Lf, params_.planning_frequency, params_.max_steering_angle, params_.min_linear_acceleration, params_.max_linear_acceleration, params_.cte_weight, params_.epsi_weight, params_.v_weight, params_.delta_weight, params_.a_weight, params_.delta_gap_weight, params_.a_gap_weight, params_.ref_velocity);
 
             _pub_ref_path_odom = nh.advertise<nav_msgs::Path>("/mpc_reference_path_odom", 1);
             // _pub_ref_path_baselink = nh.advertise<nav_msgs::Path>("/mpc_reference_path_baselink", 1);
@@ -159,6 +159,8 @@ namespace mpc_path_follower {
         // current vehicle position
         double px = current_pose_.pose.position.x;
         double py = current_pose_.pose.position.y;
+
+        publishCte(path);
         // DLOG(INFO) << "px is " << px << " py is " << py;
         // DLOG(INFO) << "current_pose_ is " << current_pose_.pose.position.x << " " << current_pose_.pose.position.y;
         // current vehicle orientation angle
@@ -189,16 +191,16 @@ namespace mpc_path_follower {
         }
         // _pub_ref_path_baselink.publish(_vehicle_ref_traj);
         int size_of_path = waypoints_x.size();
-        if (size_of_path <= 2)
+        if (size_of_path <= 6)
         {
             _is_close_enough = true;
             return true;
         }
         // san ci duo xiang shi ni he.
-        // double* ptrx = &waypoints_x[0];
-        // double* ptry = &waypoints_y[0];
-        // Eigen::Map<Eigen::VectorXd> waypoints_x_eig(ptrx, size_of_path);
-        // Eigen::Map<Eigen::VectorXd> waypoints_y_eig(ptry, size_of_path);
+        double *ptrx = &waypoints_x[0];
+        double *ptry = &waypoints_y[0];
+        Eigen::Map<Eigen::VectorXd> waypoints_x_eig(ptrx, 6);
+        Eigen::Map<Eigen::VectorXd> waypoints_y_eig(ptry, 6);
         auto coeffs = polyfit(waypoints_x, waypoints_y, 3);
         /* The cross track error is calculated by evaluating at polynomial at x, f(x)
         and subtracting y.
@@ -291,20 +293,24 @@ namespace mpc_path_follower {
         cmd_vel.linear.x = velocity[0] + throttle_value * (1 / params_.planning_frequency) * std::cos(psi);
         cmd_vel.linear.y = velocity[1] + throttle_value * (1 / params_.planning_frequency) * std::sin(psi);
         // DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " current velocity speed x is " << velocity[0] << " throttle value is " << throttle_value << " planning freq is " << params_.planning_frequency << " current vehicle orientation is " << psi * 180 / 3.14 << "  std::cos(psi) is " << std::cos(psi) << " throttle_value * (1 / params_.planning_frequency) is " << throttle_value * (1 / params_.planning_frequency) << " throttle_value * (1 / params_.planning_frequency) * std::cos(psi) is " << throttle_value * (1 / params_.planning_frequency) * std::cos(psi);
-        double radius;
-        if (fabs(tan(steer_value)) <= 1e-2)
-        {
-            radius = 1e5;
-        }
-        else
-        {
-            // TODO why 0.5??
-            radius = 0.5 / tan(steer_value);
-        }
+        // double radius;
+        // if (fabs(tan(steer_value)) <= 1e-2)
+        // {
+        //     radius = 1e5;
+        // }
+        // else
+        // {
+        //     // TODO why 0.5??
+        //     radius = 0.5 / tan(steer_value);
+        // }
+        // angular velocity = linear velocity/vehicle length* tan(steering angle)
+        float next_vehicle_velocity = std::sqrt(cmd_vel.linear.x * cmd_vel.linear.x + cmd_vel.linear.y * cmd_vel.linear.y);
 
-        cmd_vel.angular.z = std::max(-1.0, std::min(1.0, (cmd_vel.linear.x / radius)));
+        cmd_vel.angular.z = next_vehicle_velocity / params_.vehicle_Lf * std::tan(steer_value);
+        // cmd_vel.angular.z = 0;
+        // cmd_vel.angular.z = std::max(-1.0, std::min(1.0, (cmd_vel.linear.x / radius)));
         // cmd_vel.linear.x = std::min(0.2, cmd_vel.linear.x);
-        // DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " speed y value is " << cmd_vel.linear.y << " and z value is " << cmd_vel.angular.z;
+        DLOG(INFO) << "speed x value is " << cmd_vel.linear.x << " speed y value is " << cmd_vel.linear.y << " and z value is " << cmd_vel.angular.z;
         // ROS_INFO("v value and z value is, %lf , %lf", cmd_vel.linear.x, cmd_vel.angular.z);
 
         return true;
@@ -402,7 +408,7 @@ namespace mpc_path_follower {
         float cte = FindClosestDistance(path, current_pose_);
         std_msgs::Float32 cte_msg;
         cte_msg.data = cte;
-        // DLOG(INFO) << "cost is " << cost_msg.data;
+        // DLOG(INFO) << "cte is " << cte_msg.data;
         pub_cte_.publish(cte_msg);
         return true;
     }
@@ -420,5 +426,15 @@ namespace mpc_path_follower {
             }
         }
         return min_distance;
+    }
+
+    float MpcPathFollowerRos::FindDistance(const geometry_msgs::PoseStamped &current_location, const geometry_msgs::PoseStamped &next_location)
+    {
+        float distance, dx, dy;
+
+        dx = current_location.pose.position.x - next_location.pose.position.x;
+        dy = current_location.pose.position.y - next_location.pose.position.y;
+        distance = std::sqrt(dx * dx + dy * dy);
+        return distance;
     }
 };

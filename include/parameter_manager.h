@@ -35,6 +35,16 @@ namespace mpc_path_follower
     int predicted_length;
     bool evaluate_path;
 
+    // weighting factor
+    float cte_weight;
+    float epsi_weight;
+    float v_weight;
+    float delta_weight;
+    float a_weight;
+    float delta_gap_weight;
+    float a_gap_weight;
+    float ref_velocity;
+
     ParameterManager()
     {
       odom_topic = "odom";
@@ -52,6 +62,14 @@ namespace mpc_path_follower
       vehicle_Lf = 0.325;
       predicted_length = 30;
       evaluate_path = false;
+      cte_weight = 700;
+      epsi_weight = 500;
+      v_weight = 1;
+      delta_weight = 10;
+      a_weight = 10;
+      delta_gap_weight = 10000000;
+      a_gap_weight = 1000;
+      ref_velocity = 40;
     }
 
     /**
